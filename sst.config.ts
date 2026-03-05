@@ -5,7 +5,7 @@ export default $config({
     return {
       name: "agentbase",
       removal: input?.stage === "production" ? "retain" : "remove",
-      protect: input?.stage === "production" ? ["*"] : [],
+      protect: input?.stage === "production",
       home: "aws",
       providers: {
         aws: {
@@ -20,7 +20,7 @@ export default $config({
   },
   async run() {
     const { table } = await import("./infra/database");
-    const { vectorBucket } = await import("./infra/vectors");
+    const { vectorConfig } = await import("./infra/vectors");
     const { api, apiKey } = await import("./infra/api");
     const { cdn } = await import("./infra/cdn");
     const { site } = await import("./infra/website");

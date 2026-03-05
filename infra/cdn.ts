@@ -3,20 +3,11 @@ import { api } from "./api";
 // CloudFront distribution in front of AppSync to get geo headers
 const apiOriginUrl = api.url.apply((url: string) => new URL(url).hostname);
 
-const cachePolicy = new aws.cloudfront.CachePolicy("AgentbaseCachePolicy", {
-  name: `agentbase-no-cache-${$app.stage}`,
-  defaultTtl: 0,
-  maxTtl: 0,
-  minTtl: 0,
-  parametersInCacheKeyAndForwardedToOrigin: {
-    cookiesConfig: { cookieBehavior: "none" },
-    headersConfig: {
-      headerBehavior: "whitelist",
-      headers: { items: ["Authorization", "Content-Type", "x-api-key"] },
-    },
-    queryStringsConfig: { queryStringBehavior: "none" },
-  },
-});
+// AWS managed CachingDisabled policy
+const cachingDisabledPolicyId = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad";
+// AWS managed AllViewerExceptHostHeader origin request policy
+// Forwards all headers (including Authorization, x-api-key) except Host
+const allViewerExceptHostPolicyId = "b689b0a8-53d0-40ab-baf2-68738e2966ac";
 
 export const cdn = new aws.cloudfront.Distribution("AgentbaseCdn", {
   enabled: true,
@@ -34,8 +25,8 @@ export const cdn = new aws.cloudfront.Distribution("AgentbaseCdn", {
     cachedMethods: ["GET", "HEAD"],
     targetOriginId: "appsync",
     viewerProtocolPolicy: "https-only",
-    cachePolicyId: cachePolicy.id,
-    originRequestPolicyId: undefined,
+    cachePolicyId: cachingDisabledPolicyId,
+    originRequestPolicyId: allViewerExceptHostPolicyId,
     compress: true,
   },
   origins: [

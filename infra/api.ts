@@ -7,6 +7,7 @@ const authorizerFn = new sst.aws.Function("Authorizer", {
   environment: {
     POWERTOOLS_SERVICE_NAME: "agentbase",
     LOG_LEVEL: "INFO",
+    TABLE_NAME: table.name,
   },
   permissions: [
     {
@@ -18,7 +19,6 @@ const authorizerFn = new sst.aws.Function("Authorizer", {
 
 export const api = new sst.aws.AppSync("AgentbaseApi", {
   schema: "graphql/schema.graphql",
-  domain: undefined,
   transform: {
     api(args) {
       args.authenticationType = "AWS_LAMBDA";
@@ -79,128 +79,116 @@ const resolverDefaults = {
     {
       actions: [
         "s3vectors:CreateVectorBucket",
-        "s3vectors:CreateVectorIndex",
+        "s3vectors:CreateIndex",
         "s3vectors:PutVectors",
         "s3vectors:QueryVectors",
         "s3vectors:GetVectors",
         "s3vectors:DeleteVectors",
-        "s3vectors:ListVectorIndexes",
+        "s3vectors:ListIndexes",
       ],
       resources: ["*"],
     },
   ],
 } as const;
 
-// Register User (public, API_KEY auth)
-api.addDataSource({
+// Data sources
+const registerUserDS = api.addDataSource({
   name: "registerUserDS",
   lambda: {
     handler: "src/functions/resolvers/registerUser.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("registerUserDS", {
-  typeName: "Mutation",
-  fieldName: "registerUser",
-});
 
-// Me query
-api.addDataSource({
+const meDS = api.addDataSource({
   name: "meDS",
   lambda: {
     handler: "src/functions/resolvers/me.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("meDS", { typeName: "Query", fieldName: "me" });
 
-// Update Me
-api.addDataSource({
+const updateMeDS = api.addDataSource({
   name: "updateMeDS",
   lambda: {
     handler: "src/functions/resolvers/updateMe.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("updateMeDS", {
-  typeName: "Mutation",
-  fieldName: "updateMe",
-});
 
-// Create Knowledge
-api.addDataSource({
+const createKnowledgeDS = api.addDataSource({
   name: "createKnowledgeDS",
   lambda: {
     handler: "src/functions/resolvers/createKnowledge.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("createKnowledgeDS", {
-  typeName: "Mutation",
-  fieldName: "createKnowledge",
-});
 
-// Get Knowledge
-api.addDataSource({
+const getKnowledgeDS = api.addDataSource({
   name: "getKnowledgeDS",
   lambda: {
     handler: "src/functions/resolvers/getKnowledge.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("getKnowledgeDS", {
-  typeName: "Query",
-  fieldName: "getKnowledge",
-});
 
-// List Knowledge
-api.addDataSource({
+const listKnowledgeDS = api.addDataSource({
   name: "listKnowledgeDS",
   lambda: {
     handler: "src/functions/resolvers/listKnowledge.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("listKnowledgeDS", {
-  typeName: "Query",
-  fieldName: "listKnowledge",
-});
 
-// Update Knowledge
-api.addDataSource({
+const updateKnowledgeDS = api.addDataSource({
   name: "updateKnowledgeDS",
   lambda: {
     handler: "src/functions/resolvers/updateKnowledge.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("updateKnowledgeDS", {
-  typeName: "Mutation",
-  fieldName: "updateKnowledge",
-});
 
-// Delete Knowledge
-api.addDataSource({
+const deleteKnowledgeDS = api.addDataSource({
   name: "deleteKnowledgeDS",
   lambda: {
     handler: "src/functions/resolvers/deleteKnowledge.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("deleteKnowledgeDS", {
-  typeName: "Mutation",
-  fieldName: "deleteKnowledge",
-});
 
-// Search Knowledge
-api.addDataSource({
+const searchKnowledgeDS = api.addDataSource({
   name: "searchKnowledgeDS",
   lambda: {
     handler: "src/functions/resolvers/searchKnowledge.handler",
     ...resolverDefaults,
   },
 });
-api.addResolver("searchKnowledgeDS", {
-  typeName: "Query",
-  fieldName: "searchKnowledge",
+
+// Resolvers - format is "TypeName fieldName"
+api.addResolver("Mutation registerUser", {
+  dataSource: registerUserDS.name,
+});
+api.addResolver("Query me", {
+  dataSource: meDS.name,
+});
+api.addResolver("Mutation updateMe", {
+  dataSource: updateMeDS.name,
+});
+api.addResolver("Mutation createKnowledge", {
+  dataSource: createKnowledgeDS.name,
+});
+api.addResolver("Query getKnowledge", {
+  dataSource: getKnowledgeDS.name,
+});
+api.addResolver("Query listKnowledge", {
+  dataSource: listKnowledgeDS.name,
+});
+api.addResolver("Mutation updateKnowledge", {
+  dataSource: updateKnowledgeDS.name,
+});
+api.addResolver("Mutation deleteKnowledge", {
+  dataSource: deleteKnowledgeDS.name,
+});
+api.addResolver("Query searchKnowledge", {
+  dataSource: searchKnowledgeDS.name,
 });

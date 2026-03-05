@@ -8,8 +8,8 @@ import {
   QueryVectorsCommand,
   DeleteVectorsCommand,
   CreateVectorBucketCommand,
-  CreateVectorIndexCommand,
-  ListVectorIndexesCommand,
+  CreateIndexCommand,
+  ListIndexesCommand,
 } from "@aws-sdk/client-s3vectors";
 import { logger } from "./powertools.js";
 
@@ -27,10 +27,10 @@ async function ensureVectorIndex(): Promise<void> {
   if (vectorIndexReady) return;
 
   try {
-    const { vectorIndexes } = await s3VectorsClient.send(
-      new ListVectorIndexesCommand({ vectorBucketName: VECTOR_BUCKET }),
+    const { indexes } = await s3VectorsClient.send(
+      new ListIndexesCommand({ vectorBucketName: VECTOR_BUCKET }),
     );
-    if (vectorIndexes?.some((idx) => idx.vectorIndexName === VECTOR_INDEX)) {
+    if (indexes?.some((idx) => idx.indexName === VECTOR_INDEX)) {
       vectorIndexReady = true;
       return;
     }
@@ -51,26 +51,14 @@ async function ensureVectorIndex(): Promise<void> {
     index: VECTOR_INDEX,
   });
   await s3VectorsClient.send(
-    new CreateVectorIndexCommand({
+    new CreateIndexCommand({
       vectorBucketName: VECTOR_BUCKET,
-      vectorIndexName: VECTOR_INDEX,
-      vectorIndexConfiguration: {
-        vector: {
-          dimension: DIMENSIONS,
-          distanceMetric: "cosine",
-          dataType: "float32",
-        },
-      },
+      indexName: VECTOR_INDEX,
+      dimension: DIMENSIONS,
+      distanceMetric: "cosine",
+      dataType: "float32",
       metadataConfiguration: {
-        nonFilterable: [],
-        filterable: [
-          { fieldName: "knowledgeId", dataType: "str" },
-          { fieldName: "userId", dataType: "str" },
-          { fieldName: "topic", dataType: "str" },
-          { fieldName: "contentType", dataType: "str" },
-          { fieldName: "language", dataType: "str" },
-          { fieldName: "visibility", dataType: "str" },
-        ],
+        nonFilterableMetadataKeys: [],
       },
     }),
   );
@@ -118,7 +106,7 @@ export async function storeEmbedding(
   await s3VectorsClient.send(
     new PutVectorsCommand({
       vectorBucketName: VECTOR_BUCKET,
-      vectorIndexName: VECTOR_INDEX,
+      indexName: VECTOR_INDEX,
       vectors: [
         {
           key: knowledgeId,
@@ -146,19 +134,20 @@ export async function queryVectors(
   const response = await s3VectorsClient.send(
     new QueryVectorsCommand({
       vectorBucketName: VECTOR_BUCKET,
-      vectorIndexName: VECTOR_INDEX,
+      indexName: VECTOR_INDEX,
       queryVector: { float32: embedding },
       topK,
       filter: filterConditions.length > 0
         ? { $and: [{ visibility: { $eq: "public" } }, ...filterConditions] }
         : { visibility: { $eq: "public" } },
       returnMetadata: true,
+      returnDistance: true,
     }),
   );
 
   return (response.vectors ?? []).map((v) => ({
     key: v.key!,
-    score: v.score ?? 0,
+    score: v.distance ?? 0,
   }));
 }
 
@@ -168,7 +157,7 @@ export async function deleteVector(knowledgeId: string): Promise<void> {
   await s3VectorsClient.send(
     new DeleteVectorsCommand({
       vectorBucketName: VECTOR_BUCKET,
-      vectorIndexName: VECTOR_INDEX,
+      indexName: VECTOR_INDEX,
       keys: [knowledgeId],
     }),
   );

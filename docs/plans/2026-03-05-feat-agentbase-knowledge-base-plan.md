@@ -180,20 +180,20 @@ Set up SST v3 project, DynamoDB tables, S3 Vectors, CloudFront, and shared utili
 
 **Tasks:**
 
-- [ ] Initialize SST v3 project with TypeScript
+- [x] Initialize SST v3 project with TypeScript
   - `sst.config.ts` with staging/production stage handling
   - AWS profile: `staging` for stg, `production` for prd
   - `removal: "retain"` for production, `"remove"` otherwise
   - `protect: true` for production
   - **File:** `sst.config.ts`
 
-- [ ] Configure project dependencies
+- [x] Configure project dependencies
   - `jose`, `ulidx`, `electrodb`, `@aws-sdk/client-s3vectors`, `@aws-sdk/client-bedrock-runtime`, `@aws-sdk/client-dynamodb`
   - `@aws-lambda-powertools/logger`, `@aws-lambda-powertools/tracer`
   - `@middy/core` (v5.x), `vitest`, `aws-sdk-client-mock` for testing
   - **File:** `package.json`
 
-- [ ] Define single DynamoDB table in SST
+- [x] Define single DynamoDB table in SST
   - Table name: `agentbase-{stage}`
   - PK: `pk` (string), SK: `sk` (string)
   - GSI1: `gsi1pk` (string) / `gsi1sk` (string)
@@ -201,20 +201,20 @@ Set up SST v3 project, DynamoDB tables, S3 Vectors, CloudFront, and shared utili
   - TTL attribute: `ttl`
   - **File:** `infra/database.ts`
 
-- [ ] Define S3 Vectors resources via Pulumi aws-native provider
+- [x] Define S3 Vectors resources via Pulumi aws-native provider
   - Vector bucket: `agentbase-vectors-{stage}`
   - Vector index: dimension 1024, cosine distance, float32
   - Metadata config: `knowledgeId`, `userId`, `topic`, `contentType`, `language`, `visibility` as filterable
   - **File:** `infra/vectors.ts`
 
-- [ ] Define CloudFront distribution in front of AppSync
+- [x] Define CloudFront distribution in front of AppSync
   - Origin: AppSync API endpoint
   - Forward geo headers: `CloudFront-Viewer-Country`, `CloudFront-Viewer-City`, `CloudFront-Viewer-Country-Region`
   - Forward `Authorization` header
   - Cache policy: no caching (all requests to origin)
   - **File:** `infra/cdn.ts`
 
-- [ ] Define shared types
+- [x] Define shared types
   - `User`, `Knowledge`, `SearchResult`, `KnowledgeConnection` interfaces
   - `Visibility`, `ContentType` union types
   - `ErrorCode` union type for standardized error codes
@@ -222,18 +222,18 @@ Set up SST v3 project, DynamoDB tables, S3 Vectors, CloudFront, and shared utili
   - `AuthContext` interface for resolverContext
   - **File:** `src/lib/types.ts`
 
-- [ ] Define error handling utilities
+- [x] Define error handling utilities
   - `AppError` class with `code`, `message`, optional `extensions`
   - Utility to wrap AWS SDK errors → standardized error codes
   - **File:** `src/lib/errors.ts`
 
-- [ ] Set up shared Lambda Powertools utilities
+- [x] Set up shared Lambda Powertools utilities
   - Logger with persistent keys (service name, stage)
   - Tracer with service name
   - Middy middleware stack factory (logger + tracer)
   - **File:** `src/lib/powertools.ts`
 
-- [ ] Set up ElectroDB entities and service
+- [x] Set up ElectroDB entities and service
   - DynamoDB DocumentClient with X-Ray tracing
   - Table name via SST Resource linking
   - Define `UserEntity` with indexes for userId (primary), username (GSI1), fingerprint (GSI2)
@@ -250,20 +250,20 @@ Implement registration, JWT verification, and the Lambda authorizer.
 
 **Tasks:**
 
-- [ ] Implement key utilities
+- [x] Implement key utilities
   - JWK import/export helpers using `jose`
   - Public key fingerprint generation (SHA-256 of JWK thumbprint via `calculateJwkThumbprint`)
   - JWT verification function: verify signature, check exp/iat/iss/aud, enforce `algorithms: ['ES256']`, `clockTolerance: '5s'`
   - Public key validation: must be JWK with `kty: "EC"`, `crv: "P-256"`
   - **File:** `src/lib/auth/keys.ts`
 
-- [ ] Implement JTI replay protection
+- [x] Implement JTI replay protection
   - DynamoDB conditional put with `attribute_not_exists(jti)`
   - TTL set to `exp + 300` (5 min buffer)
   - Handle `ConditionalCheckFailedException` as replay detection
   - **File:** `src/lib/auth/replay.ts`
 
-- [ ] Implement Lambda authorizer
+- [x] Implement Lambda authorizer
   - Extract Bearer token from `authorizationToken`
   - Parse JWT header to get `sub` (public key fingerprint)
   - Look up user by `publicKeyFingerprint` via ElectroDB UserEntity GSI2 query
@@ -273,7 +273,7 @@ Implement registration, JWT verification, and the Lambda authorizer.
   - Log: userId, IP, user agent, auth result
   - **File:** `src/functions/authorizer.ts`
 
-- [ ] Implement `registerUser` mutation resolver (Lambda, public/no auth)
+- [x] Implement `registerUser` mutation resolver (Lambda, public/no auth)
   - Validate required fields: `username`, `publicKey` (JWK)
   - Validate username: non-empty, 3-32 chars, alphanumeric + hyphens
   - Validate public key: must be EC P-256 JWK
@@ -287,14 +287,14 @@ Implement registration, JWT verification, and the Lambda authorizer.
   - Return User object (excluding publicKey internals)
   - **File:** `src/functions/resolvers/registerUser.ts`
 
-- [ ] Configure AppSync with Lambda authorizer
+- [x] Configure AppSync with Lambda authorizer
   - Use `transform.api` to set `authenticationType: "AWS_LAMBDA"` with `lambdaAuthorizerConfig`
   - Add `additionalAuthenticationProviders` with `API_KEY` for the public `registerUser` mutation
   - Grant AppSync invoke permission on authorizer Lambda
   - Note: IP extraction differs between Lambda auth and API_KEY auth paths — document and handle both
   - **File:** `infra/api.ts`
 
-- [ ] Write unit tests for auth
+- [x] Write unit tests for auth
   - Key generation and fingerprinting
   - JWT signing and verification (valid, expired, wrong key, wrong algorithm, missing claims)
   - Replay detection (first use accepted, second rejected)
@@ -311,7 +311,7 @@ Implement create, read, update, delete for knowledge items with synchronous embe
 
 **Tasks:**
 
-- [ ] Define GraphQL schema
+- [x] Define GraphQL schema
   - Types: `User`, `Knowledge`, `KnowledgeConnection`, `SearchResult`
   - Inputs: `RegisterUserInput`, `UpdateUserInput`, `CreateKnowledgeInput`, `UpdateKnowledgeInput`
   - Queries: `me`, `getKnowledge(id)`, `listKnowledge(topic, limit, nextToken)`, `searchKnowledge(query, topic, limit)`
@@ -320,14 +320,14 @@ Implement create, read, update, delete for knowledge items with synchronous embe
   - Directive `@aws_lambda` on all other operations
   - **File:** `graphql/schema.graphql`
 
-- [ ] Implement embedding generation utility
+- [x] Implement embedding generation utility
   - Call Bedrock `InvokeModel` with `amazon.titan-embed-text-v2:0`
   - Extract text from content based on contentType (plain text direct, JSON stringified)
   - Dimension: 1024, normalize: true
   - Store in S3 Vectors: key = knowledgeId, metadata = { knowledgeId, userId, topic, contentType, language, visibility }
   - **File:** `src/lib/embeddings.ts`
 
-- [ ] Implement `createKnowledge` Lambda resolver
+- [x] Implement `createKnowledge` Lambda resolver
   - Validate required fields: `topic`, `contentType`, `content`
   - Validate topic: non-empty, max 128 chars, lowercase alphanumeric + dots/hyphens
   - Validate contentType: must be valid MIME type
@@ -342,40 +342,40 @@ Implement create, read, update, delete for knowledge items with synchronous embe
   - Log: userId, knowledgeId, topic, contentType
   - **File:** `src/functions/resolvers/createKnowledge.ts`
 
-- [ ] Implement `getKnowledge` Lambda resolver
+- [x] Implement `getKnowledge` Lambda resolver
   - GetItem by knowledgeId via ElectroDB KnowledgeEntity `get`
   - Authorization: return any public item, or caller's own private items. Reject private items owned by others with `FORBIDDEN`.
   - **File:** `src/functions/resolvers/getKnowledge.ts`
 
-- [ ] Implement `listKnowledge` Lambda resolver
+- [x] Implement `listKnowledge` Lambda resolver
   - Query via ElectroDB KnowledgeEntity GSI1 by userId (caller's own items only, both public and private)
   - Optional topic filter (uses SK `begins_with` for efficient key condition query)
   - Pagination via nextToken, default limit 20, max 100
   - **File:** `src/functions/resolvers/listKnowledge.ts`
 
-- [ ] Implement `updateKnowledge` Lambda resolver
+- [x] Implement `updateKnowledge` Lambda resolver
   - Authorization: only owner can update (check userId matches resolverContext)
   - Update content, topic, contentType, language, visibility
   - Re-generate embedding on content change (synchronous)
   - Update S3 Vectors entry (put with same key overwrites)
   - **File:** `src/functions/resolvers/updateKnowledge.ts`
 
-- [ ] Implement `deleteKnowledge` Lambda resolver
+- [x] Implement `deleteKnowledge` Lambda resolver
   - Authorization: only owner can delete
   - Delete from DynamoDB via ElectroDB KnowledgeEntity `delete`
   - Delete from S3 Vectors
   - **File:** `src/functions/resolvers/deleteKnowledge.ts`
 
-- [ ] Implement `me` query and `updateMe` mutation
+- [x] Implement `me` query and `updateMe` mutation
   - `me`: return current user from resolverContext userId via ElectroDB UserEntity `get`
   - `updateMe`: update currentTask, longTermGoal
   - **Files:** `src/functions/resolvers/me.ts`, `src/functions/resolvers/updateMe.ts`
 
-- [ ] Wire all resolvers in AppSync config
+- [x] Wire all resolvers in AppSync config
   - Lambda data sources for all resolvers
   - **File:** `infra/api.ts`
 
-- [ ] Write unit tests for knowledge CRUD
+- [x] Write unit tests for knowledge CRUD
   - Create: valid input, missing fields, invalid topic, size limit, embedding call
   - Read: public item accessible by anyone, private item only by owner
   - Update: owner can update, non-owner rejected, embedding regenerated
@@ -392,7 +392,7 @@ Implement vector search via S3 Vectors.
 
 **Tasks:**
 
-- [ ] Implement `searchKnowledge` Lambda resolver
+- [x] Implement `searchKnowledge` Lambda resolver
   - Generate embedding for query string via Bedrock Titan V2
   - Validate query: non-empty, max 10KB
   - Query S3 Vectors with `QueryVectorsCommand`
@@ -404,7 +404,7 @@ Implement vector search via S3 Vectors.
   - Log: userId, query (truncated), topic filter, result count
   - **File:** `src/functions/resolvers/searchKnowledge.ts`
 
-- [ ] Write unit tests for search
+- [x] Write unit tests for search
   - Query embedding generation
   - S3 Vectors query construction with filters
   - Result hydration from DynamoDB
@@ -418,7 +418,7 @@ Implement vector search via S3 Vectors.
 
 **Tasks:**
 
-- [ ] Build static website (single HTML file, zero JS, zero build step)
+- [x] Build static website (single HTML file, zero JS, zero build step)
   - `lang="en-CA"` on HTML element
   - SEO meta tags: title, description, Open Graph, robots
   - Agent-friendly: semantic HTML, readable as plain text
@@ -433,18 +433,18 @@ Implement vector search via S3 Vectors.
   - No organization branding — the product is simply "AgentBase" with no company attribution
   - **File:** `web/index.html`
 
-- [ ] Configure SST StaticSite
+- [x] Configure SST StaticSite
   - Serve from `web/` directory, no build step
   - **File:** `infra/website.ts`
 
-- [ ] Wire all infrastructure together in `sst.config.ts`
+- [x] Wire all infrastructure together in `sst.config.ts`
   - Import all infra modules
   - Link tables and resources to Lambda functions
   - Set Powertools environment variables (`POWERTOOLS_SERVICE_NAME`, `LOG_LEVEL`)
   - Enable X-Ray tracing on all Lambdas
   - **File:** `sst.config.ts`
 
-- [ ] Run all unit tests
+- [x] Run all unit tests
   - `npx vitest run` — all passing
 
 - [ ] Deploy to staging

@@ -21,6 +21,7 @@
     "electrodb": "^3.0.0",
     "jose": "^6.0.0",
     "sst": "latest",
+    "sst-darwin-arm64": "^4.2.0",
     "ulidx": "^2.0.0"
   },
   "devDependencies": {
@@ -29,5 +30,10 @@
     "aws-sdk-client-mock": "^4.0.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
