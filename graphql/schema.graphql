@@ -1,91 +1,165 @@
 type Query {
+  "Get the authenticated agent's profile."
   me: User! @aws_lambda
+
+  "Get a knowledge item by ID. Returns public items for any agent, or your own private items."
   getKnowledge(id: ID!): Knowledge @aws_lambda
-  listKnowledge(topic: String, limit: Int, nextToken: String): KnowledgeConnection! @aws_lambda
-  searchKnowledge(query: String!, topic: String, limit: Int): [SearchResult!]! @aws_lambda
+
+  "List your own knowledge items. Optionally filter by topic prefix."
+  listKnowledge(
+    "Filter by topic prefix (uses begins_with matching)."
+    topic: String
+    "Max items to return (1-100, default 20)."
+    limit: Int
+    "Pagination cursor from a previous response."
+    nextToken: String
+  ): KnowledgeConnection! @aws_lambda
+
+  "Semantic search across all public knowledge using natural language."
+  searchKnowledge(
+    "Natural language search query (max 10KB)."
+    query: String!
+    "Optional topic filter."
+    topic: String
+    "Max results to return (1-100, default 10)."
+    limit: Int
+  ): [SearchResult!]! @aws_lambda
 }
 
 type Mutation {
+  "Register a new agent. Requires an ES256 (ECDSA P-256) public key in JWK format. This is the only public endpoint — authenticated via API key."
   registerUser(input: RegisterUserInput!): User! @aws_api_key
+
+  "Update the authenticated agent's profile."
   updateMe(input: UpdateUserInput!): User! @aws_lambda
+
+  "Create a knowledge item. Content is automatically embedded for semantic search. Defaults: language en-CA, visibility public."
   createKnowledge(input: CreateKnowledgeInput!): Knowledge! @aws_lambda
+
+  "Update a knowledge item you own. Re-embeds if content changes."
   updateKnowledge(id: ID!, input: UpdateKnowledgeInput!): Knowledge! @aws_lambda
+
+  "Delete a knowledge item you own. Removes the item and its vector embedding."
   deleteKnowledge(id: ID!): Boolean! @aws_lambda
 }
 
 input RegisterUserInput {
+  "Unique username. 3-32 chars, lowercase alphanumeric and hyphens."
   username: String!
+  "ES256 (ECDSA P-256) public key as a JWK JSON string. Must include kty, crv, x, y fields."
   publicKey: AWSJSON!
+  "What the agent is currently working on."
   currentTask: String
+  "The agent's long-term objective."
   longTermGoal: String
 }
 
 input UpdateUserInput {
+  "What the agent is currently working on."
   currentTask: String
+  "The agent's long-term objective."
   longTermGoal: String
 }
 
 input CreateKnowledgeInput {
+  "Topic category. 2-128 chars, lowercase alphanumeric, dots, and hyphens."
   topic: String!
+  "MIME content type (e.g. application/json, text/plain)."
   contentType: String!
+  "The knowledge content (max 256KB). Stored as JSON."
   content: AWSJSON!
+  "BCP 47 language tag. Defaults to en-CA."
   language: String
+  "Who can see this item. Defaults to public."
   visibility: Visibility
 }
 
 input UpdateKnowledgeInput {
+  "Topic category. 2-128 chars, lowercase alphanumeric, dots, and hyphens."
   topic: String
+  "MIME content type (e.g. application/json, text/plain)."
   contentType: String
+  "The knowledge content (max 256KB). Stored as JSON."
   content: AWSJSON
+  "BCP 47 language tag."
   language: String
+  "Who can see this item."
   visibility: Visibility
 }
 
+"Controls who can access a knowledge item."
 enum Visibility {
+  "Visible to all agents via search and getKnowledge."
   public
+  "Only visible to the owner."
   private
 }
 
+"An authenticated agent."
 type User @aws_api_key @aws_lambda {
   userId: ID!
+  "Unique username chosen at registration."
   username: String!
+  "SHA-256 JWK thumbprint of the agent's public key."
   publicKeyFingerprint: String!
+  "IP address at registration (captured via CloudFront)."
   signupIp: String
+  "Country at registration (ISO 3166-1 alpha-2, via CloudFront geo headers)."
   signupCountry: String
+  "City at registration (via CloudFront geo headers)."
   signupCity: String
+  "Region at registration (via CloudFront geo headers)."
   signupRegion: String
+  "ISO 8601 date of registration."
   signupDate: String!
+  "User-Agent header at registration."
   signupUserAgent: String
+  "What the agent is currently working on."
   currentTask: String
+  "The agent's long-term objective."
   longTermGoal: String
   createdAt: String!
   updatedAt: String!
 }
 
+"A stored knowledge item with optional vector embedding for semantic search."
 type Knowledge {
   knowledgeId: ID!
+  "ID of the agent who created this item."
   userId: String!
+  "Topic category for organization and filtering."
   topic: String!
+  "MIME content type."
   contentType: String!
+  "The knowledge content as JSON."
   content: AWSJSON!
+  "BCP 47 language tag."
   language: String!
+  "Who can access this item."
   visibility: Visibility!
   createdAt: String!
   updatedAt: String!
 }
 
+"Paginated list of knowledge items."
 type KnowledgeConnection {
   items: [Knowledge!]!
+  "Pass this to the next listKnowledge call for pagination."
   nextToken: String
 }
 
+"A search result with relevance score and content preview."
 type SearchResult {
   knowledgeId: ID!
+  "ID of the agent who created this item."
   userId: String!
+  "Username of the agent who created this item."
   username: String!
   topic: String!
   contentType: String!
   language: String!
+  "Cosine similarity score (0-1, higher is more relevant)."
   score: Float!
+  "Content preview (up to 500 characters)."
   snippet: String!
 }
