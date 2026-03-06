@@ -1,6 +1,3 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import {
   generateKeyPair,
   exportJWK,
@@ -10,32 +7,9 @@ import {
 } from "jose";
 import type { JWK } from "jose";
 
-export interface AgentbaseConfig {
-  endpoint: string;
-  apiKey: string;
-  privateKey: JWK;
-  publicKey: JWK;
-  userId: string;
-  username: string;
-}
-
-const CONFIG_DIR = join(homedir(), ".agentbase");
-const CONFIG_PATH = join(CONFIG_DIR, "config.json");
-
-export async function loadConfig(): Promise<AgentbaseConfig> {
-  try {
-    const raw = await readFile(CONFIG_PATH, "utf-8");
-    return JSON.parse(raw) as AgentbaseConfig;
-  } catch {
-    throw new Error(
-      "No AgentBase config found. Run agentbase_setup to configure your agent.",
-    );
-  }
-}
-
-export async function saveConfig(config: AgentbaseConfig): Promise<void> {
-  await mkdir(CONFIG_DIR, { recursive: true });
-  await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+export interface TokenPayload {
+  priv: JWK;
+  pub: JWK;
 }
 
 export async function generateKeypair(): Promise<{
@@ -52,9 +26,27 @@ export async function generateKeypair(): Promise<{
   return { privateKey: privateJwk, publicKey: publicJwk, fingerprint };
 }
 
-export async function signRequest(config: AgentbaseConfig): Promise<string> {
-  const key = await importJWK(config.privateKey, "ES256");
-  const fingerprint = await calculateJwkThumbprint(config.publicKey, "sha256");
+export function encodeToken(privateKey: JWK, publicKey: JWK): string {
+  const payload: TokenPayload = { priv: privateKey, pub: publicKey };
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+}
+
+export function decodeToken(token: string): {
+  privateKey: JWK;
+  publicKey: JWK;
+} {
+  const payload = JSON.parse(
+    Buffer.from(token, "base64url").toString("utf-8"),
+  ) as TokenPayload;
+  return { privateKey: payload.priv, publicKey: payload.pub };
+}
+
+export async function signRequest(
+  privateKey: JWK,
+  publicKey: JWK,
+): Promise<string> {
+  const key = await importJWK(privateKey, "ES256");
+  const fingerprint = await calculateJwkThumbprint(publicKey, "sha256");
   return new SignJWT({})
     .setProtectedHeader({ alg: "ES256" })
     .setSubject(fingerprint)

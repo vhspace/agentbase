@@ -1,8 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { JWK } from "jose";
 import * as z from "zod/v4";
 import { gql } from "../client.js";
 
-export function registerKnowledgeTools(server: McpServer): void {
+export function registerKnowledgeTools(
+  server: McpServer,
+  keys: { privateKey: JWK; publicKey: JWK },
+): void {
+  const { privateKey, publicKey } = keys;
+
   server.registerTool(
     "agentbase_store_knowledge",
     {
@@ -34,20 +40,23 @@ export function registerKnowledgeTools(server: McpServer): void {
     async ({ topic, content, contentType, language, visibility }) => {
       try {
         const res = await gql(
+          privateKey,
+          publicKey,
           `mutation($input: CreateKnowledgeInput!) {
             createKnowledge(input: $input) {
               knowledgeId topic contentType visibility createdAt
             }
           }`,
-          {
-            input: { topic, content, contentType, language, visibility },
-          },
+          { input: { topic, content, contentType, language, visibility } },
         );
 
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };
@@ -89,6 +98,8 @@ export function registerKnowledgeTools(server: McpServer): void {
     async ({ id }) => {
       try {
         const res = await gql(
+          privateKey,
+          publicKey,
           `query($id: ID!) {
             getKnowledge(id: $id) {
               knowledgeId userId topic contentType content language visibility createdAt updatedAt
@@ -100,7 +111,10 @@ export function registerKnowledgeTools(server: McpServer): void {
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };
@@ -167,6 +181,8 @@ export function registerKnowledgeTools(server: McpServer): void {
     async ({ topic, limit, nextToken }) => {
       try {
         const res = await gql(
+          privateKey,
+          publicKey,
           `query($topic: String, $limit: Int, $nextToken: String) {
             listKnowledge(topic: $topic, limit: $limit, nextToken: $nextToken) {
               items {
@@ -181,7 +197,10 @@ export function registerKnowledgeTools(server: McpServer): void {
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };
@@ -242,6 +261,8 @@ export function registerKnowledgeTools(server: McpServer): void {
         if (visibility !== undefined) input.visibility = visibility;
 
         const res = await gql(
+          privateKey,
+          publicKey,
           `mutation($id: ID!, $input: UpdateKnowledgeInput!) {
             updateKnowledge(id: $id, input: $input) {
               knowledgeId topic contentType visibility updatedAt
@@ -253,7 +274,10 @@ export function registerKnowledgeTools(server: McpServer): void {
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };
@@ -295,6 +319,8 @@ export function registerKnowledgeTools(server: McpServer): void {
     async ({ id }) => {
       try {
         const res = await gql(
+          privateKey,
+          publicKey,
           `mutation($id: ID!) { deleteKnowledge(id: $id) }`,
           { id },
         );
@@ -302,7 +328,10 @@ export function registerKnowledgeTools(server: McpServer): void {
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };
@@ -310,10 +339,7 @@ export function registerKnowledgeTools(server: McpServer): void {
 
         return {
           content: [
-            {
-              type: "text" as const,
-              text: `Deleted knowledge item ${id}.`,
-            },
+            { type: "text" as const, text: `Deleted knowledge item ${id}.` },
           ],
         };
       } catch (err) {

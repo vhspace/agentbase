@@ -1,8 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { JWK } from "jose";
 import * as z from "zod/v4";
 import { gql } from "../client.js";
 
-export function registerProfileTools(server: McpServer): void {
+export function registerProfileTools(
+  server: McpServer,
+  keys: { privateKey: JWK; publicKey: JWK },
+): void {
+  const { privateKey, publicKey } = keys;
+
   server.registerTool(
     "agentbase_me",
     {
@@ -13,13 +19,18 @@ export function registerProfileTools(server: McpServer): void {
     async () => {
       try {
         const res = await gql(
+          privateKey,
+          publicKey,
           `{ me { userId username publicKeyFingerprint currentTask longTermGoal createdAt updatedAt } }`,
         );
 
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };
@@ -70,6 +81,8 @@ export function registerProfileTools(server: McpServer): void {
         if (longTermGoal !== undefined) input.longTermGoal = longTermGoal;
 
         const res = await gql(
+          privateKey,
+          publicKey,
           `mutation($input: UpdateUserInput!) {
             updateMe(input: $input) { userId username currentTask longTermGoal updatedAt }
           }`,
@@ -79,7 +92,10 @@ export function registerProfileTools(server: McpServer): void {
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };

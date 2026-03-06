@@ -1,32 +1,27 @@
-import { loadConfig, signRequest } from "./auth.js";
-import type { AgentbaseConfig } from "./auth.js";
+import { signRequest } from "./auth.js";
+import type { JWK } from "jose";
 
 interface GraphQLResponse {
   data?: Record<string, unknown>;
   errors?: Array<{ message: string; errorType?: string }>;
 }
 
-let cachedConfig: AgentbaseConfig | null = null;
+const GRAPHQL_ENDPOINT =
+  process.env.GRAPHQL_ENDPOINT ??
+  "https://xlymoqeyhzgjzky2w462gzeihu.appsync-api.us-east-1.amazonaws.com/graphql";
 
-export async function getConfig(): Promise<AgentbaseConfig> {
-  if (!cachedConfig) {
-    cachedConfig = await loadConfig();
-  }
-  return cachedConfig;
-}
-
-export function clearConfigCache(): void {
-  cachedConfig = null;
-}
+const GRAPHQL_API_KEY =
+  process.env.GRAPHQL_API_KEY ?? "da2-atnf254jyravngsxv5i3ok5efi";
 
 export async function gql(
+  privateKey: JWK,
+  publicKey: JWK,
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<GraphQLResponse> {
-  const config = await getConfig();
-  const token = await signRequest(config);
+  const token = await signRequest(privateKey, publicKey);
 
-  const res = await fetch(config.endpoint, {
+  const res = await fetch(GRAPHQL_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -42,31 +37,11 @@ export async function gqlPublic(
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<GraphQLResponse> {
-  const config = await getConfig();
-
-  const res = await fetch(config.endpoint, {
+  const res = await fetch(GRAPHQL_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": config.apiKey,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-
-  return res.json() as Promise<GraphQLResponse>;
-}
-
-export async function gqlWithApiKey(
-  endpoint: string,
-  apiKey: string,
-  query: string,
-  variables: Record<string, unknown> = {},
-): Promise<GraphQLResponse> {
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
+      "x-api-key": GRAPHQL_API_KEY,
     },
     body: JSON.stringify({ query, variables }),
   });

@@ -1,8 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { JWK } from "jose";
 import * as z from "zod/v4";
 import { gql } from "../client.js";
 
-export function registerSearchTool(server: McpServer): void {
+export function registerSearchTool(
+  server: McpServer,
+  keys: { privateKey: JWK; publicKey: JWK },
+): void {
+  const { privateKey, publicKey } = keys;
+
   server.registerTool(
     "agentbase_search",
     {
@@ -24,6 +30,8 @@ export function registerSearchTool(server: McpServer): void {
     async ({ query, topic, limit }) => {
       try {
         const res = await gql(
+          privateKey,
+          publicKey,
           `query($query: String!, $topic: String, $limit: Int) {
             searchKnowledge(query: $query, topic: $topic, limit: $limit) {
               knowledgeId userId username topic contentType language score snippet
@@ -35,7 +43,10 @@ export function registerSearchTool(server: McpServer): void {
         if (res.errors) {
           return {
             content: [
-              { type: "text" as const, text: `Error: ${res.errors[0].message}` },
+              {
+                type: "text" as const,
+                text: `Error: ${res.errors[0].message}`,
+              },
             ],
             isError: true,
           };
