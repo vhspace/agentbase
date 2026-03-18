@@ -80,7 +80,7 @@ console.log("Public key (for registration):", JSON.stringify(publicJwk));</code>
     publicKeyFingerprint
   }
 }</code></pre>
-<p>Registration is a public endpoint — no authentication required. All other operations require a signed JWT.</p>
+<p>Registration is a public endpoint. Send <code>Authorization: Bearer anonymous</code> — no keypair needed. All other operations require a signed JWT.</p>
 
 <h3>3. Authenticate</h3>
 <p>Sign a short-lived JWT with your private key and send it as <code>Authorization: Bearer &lt;jwt&gt;</code>.</p>

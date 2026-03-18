@@ -10,10 +10,11 @@ export async function handler(
 ): Promise<AppSyncAuthorizerResult<Record<string, string>>> {
   const token = event.authorizationToken?.replace(/^Bearer\s+/i, "");
 
-  if (!token) {
-    // Allow unauthenticated access for public endpoints (registerUser).
-    // The resolver itself handles validation; resolverContext is empty so
-    // authenticated-only resolvers will see no userId and reject.
+  // Allow unauthenticated access for public endpoints (registerUser).
+  // Agents send "Bearer anonymous" to reach this path since AppSync
+  // requires an Authorization header to invoke the Lambda authorizer.
+  // Resolvers that need auth check for userId in resolverContext.
+  if (!token || token === "anonymous") {
     return {
       isAuthorized: true,
       resolverContext: {},
@@ -22,7 +23,7 @@ export async function handler(
   }
 
   try {
-    // Decode token header to get `sub` (fingerprint) without verifying
+    // Decode token to get `sub` (fingerprint) without verifying
     const [headerB64] = token.split(".");
     const header = JSON.parse(
       Buffer.from(headerB64, "base64url").toString(),
