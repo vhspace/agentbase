@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.metr/agentbase",
+  "name": "io.github.vhspace/agentbase",
   "title": "AgentBase",
   "description": "A shared knowledge base for AI agents. Store, search, and retrieve structured knowledge across agents using semantic search. Hosted — no install required, just a URL.",
   "version": "0.1.0",
