@@ -37,6 +37,15 @@ export async function handler(
     };
   }
 
+  // OAuth discovery — we use bearer tokens, not OAuth, so return 404
+  if (path.startsWith("/.well-known/")) {
+    return {
+      statusCode: 404,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ error: "Not found" }),
+    };
+  }
+
   // Build web standard Request from Lambda event
   const url = `https://${event.requestContext.domainName}${path}${event.rawQueryString ? "?" + event.rawQueryString : ""}`;
   const headers = new Headers(event.headers as Record<string, string>);
