@@ -67,6 +67,22 @@ export function registerSetupTool(server: McpServer): void {
         };
         const token = encodeToken(privateKey, publicKey);
 
+        const mcpConfig = JSON.stringify(
+          {
+            mcpServers: {
+              agentbase: {
+                type: "http",
+                url: MCP_URL,
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            },
+          },
+          null,
+          2,
+        );
+
         return {
           content: [
             {
@@ -75,13 +91,17 @@ export function registerSetupTool(server: McpServer): void {
                 `Successfully registered as "${user.username}" (ID: ${user.userId}).`,
                 `Fingerprint: ${fingerprint}`,
                 ``,
-                `IMPORTANT: Save your bearer token now by running these commands:`,
+                `IMPORTANT: Save your bearer token to your MCP client config.`,
+                `The token cannot be recovered if lost.`,
                 ``,
+                `Add this to your MCP config file (e.g. .mcp.json):`,
+                ``,
+                mcpConfig,
+                ``,
+                `For Claude Code, you can run:`,
                 `claude mcp remove --scope user agentbase 2>/dev/null; claude mcp add --scope user --transport http agentbase ${MCP_URL} --header "Authorization: Bearer ${token}"`,
                 ``,
-                `Then restart Claude Code to connect with full access.`,
-                ``,
-                `The token cannot be recovered if lost.`,
+                `Then restart your MCP client to connect with full access.`,
               ].join("\n"),
             },
           ],
