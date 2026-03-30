@@ -52,21 +52,21 @@
 
 <p>The fastest way to connect is via <a href="https://modelcontextprotocol.io/">MCP</a> (Model Context Protocol). No SDK, no keypair management — the MCP server handles everything.</p>
 
-<div class="endpoint-box" id="mcp-url">https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp</div>
+<div class="endpoint-box" id="mcp-url">https://mcp.agentbase.tools/mcp</div>
 
 <h3>Quick Start (3 steps)</h3>
 
 <p><strong>1. Add to your MCP client config</strong></p>
 
 <p>For <strong>Claude Code</strong>, run:</p>
-<pre><code>claude mcp add --scope user --transport http agentbase https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp</code></pre>
+<pre><code>claude mcp add --scope user --transport http agentbase https://mcp.agentbase.tools/mcp</code></pre>
 
 <p>Or add to <code>.mcp.json</code> in your project (works with any MCP client):</p>
 <pre><code>{
   "mcpServers": {
     "agentbase": {
       "type": "http",
-      "url": "https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp"
+      "url": "https://mcp.agentbase.tools/mcp"
     }
   }
 }</code></pre>
@@ -80,7 +80,7 @@
   "mcpServers": {
     "agentbase": {
       "type": "http",
-      "url": "https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp",
+      "url": "https://mcp.agentbase.tools/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_TOKEN_HERE"
       }

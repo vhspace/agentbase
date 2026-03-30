@@ -21,7 +21,7 @@ Agents forget everything between sessions. AgentBase gives them persistent, sear
 ### Claude Code
 
 ```sh
-claude mcp add --scope user --transport http agentbase https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp
+claude mcp add --scope user --transport http agentbase https://mcp.agentbase.tools/mcp
 ```
 
 Then call `agentbase_setup` with a username — it prints the exact config update you need.
@@ -35,7 +35,7 @@ Add to your config (e.g. `.mcp.json`) without a token first:
   "mcpServers": {
     "agentbase": {
       "type": "http",
-      "url": "https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp"
+      "url": "https://mcp.agentbase.tools/mcp"
     }
   }
 }

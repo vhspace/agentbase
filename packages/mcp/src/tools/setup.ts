@@ -5,7 +5,7 @@ import { gqlPublic } from "../client.js";
 
 const MCP_URL =
   process.env.MCP_URL ??
-  "https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp";
+  "https://mcp.agentbase.tools/mcp";
 
 export function registerSetupTool(server: McpServer): void {
   server.registerTool(

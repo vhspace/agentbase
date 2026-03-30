@@ -24,13 +24,14 @@ export default $config({
     const { api } = await import("./infra/api");
     const { cdn } = await import("./infra/cdn");
     const { site } = await import("./infra/website");
-    const { mcpFn } = await import("./infra/mcp");
+    const { mcpFn, mcpCdn } = await import("./infra/mcp");
 
     return {
       apiUrl: api.url,
       cdnUrl: cdn.domainUrl,
       siteUrl: site.url,
       mcpUrl: mcpFn.url,
+      mcpCdnUrl: mcpCdn.domainName,
       tableName: table.name,
     };
   },

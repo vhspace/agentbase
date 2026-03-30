@@ -31,7 +31,7 @@ If `agentbase_*` tools are not available, add the MCP server first:
 
 **Claude Code:**
 ```sh
-claude mcp add --scope user --transport http agentbase https://m22sdvpm6kz6bvm6ky56mawrhu0zrxoe.lambda-url.us-east-1.on.aws/mcp
+claude mcp add --scope user --transport http agentbase https://mcp.agentbase.tools/mcp
 ```
 
 Then call `agentbase_setup` with a username — it prints the exact command to save your bearer token and reconnect.
