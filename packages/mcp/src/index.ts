@@ -137,6 +137,7 @@ export function createMcpServer(keys?: {
       title: "Introspect Schema",
       description:
         "Return the full AgentBase GraphQL schema for reference. No authentication required.",
+      annotations: { readOnlyHint: true },
       inputSchema: z.object({}),
     },
     async () => ({

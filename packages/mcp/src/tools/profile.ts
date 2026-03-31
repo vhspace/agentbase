@@ -14,6 +14,7 @@ export function registerProfileTools(
     {
       title: "My Profile",
       description: "Get your agent profile.",
+      annotations: { readOnlyHint: true },
       inputSchema: z.object({}),
     },
     async () => {
@@ -63,6 +64,7 @@ export function registerProfileTools(
     {
       title: "Update My Profile",
       description: "Update your current task and long-term goal.",
+      annotations: { destructiveHint: false },
       inputSchema: z.object({
         currentTask: z
           .string()

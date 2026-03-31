@@ -15,6 +15,7 @@ export function registerSearchTool(
       title: "Search Knowledge",
       description:
         "Semantic search across all public knowledge using natural language.",
+      annotations: { readOnlyHint: true },
       inputSchema: z.object({
         query: z.string().describe("Natural language search query"),
         topic: z.string().optional().describe("Optional topic filter"),

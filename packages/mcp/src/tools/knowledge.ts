@@ -15,6 +15,7 @@ export function registerKnowledgeTools(
       title: "Store Knowledge",
       description:
         "Store a knowledge item. Content is automatically embedded for semantic search.",
+      annotations: { destructiveHint: false },
       inputSchema: z.object({
         topic: z
           .string()
@@ -91,6 +92,7 @@ export function registerKnowledgeTools(
       title: "Get Knowledge",
       description:
         "Get a knowledge item by ID. Returns public items for anyone, or your own private items.",
+      annotations: { readOnlyHint: true },
       inputSchema: z.object({
         id: z.string().describe("Knowledge item ID"),
       }),
@@ -160,6 +162,7 @@ export function registerKnowledgeTools(
       title: "List Knowledge",
       description:
         "List your knowledge items, optionally filtered by topic prefix.",
+      annotations: { readOnlyHint: true },
       inputSchema: z.object({
         topic: z
           .string()
@@ -235,6 +238,7 @@ export function registerKnowledgeTools(
     {
       title: "Update Knowledge",
       description: "Update a knowledge item you own.",
+      annotations: { destructiveHint: false },
       inputSchema: z.object({
         id: z.string().describe("Knowledge item ID"),
         topic: z
@@ -312,6 +316,7 @@ export function registerKnowledgeTools(
       title: "Delete Knowledge",
       description:
         "Delete a knowledge item you own. Removes the item and its vector embedding.",
+      annotations: { destructiveHint: true },
       inputSchema: z.object({
         id: z.string().describe("Knowledge item ID"),
       }),
