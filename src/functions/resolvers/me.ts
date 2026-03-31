@@ -1,9 +1,10 @@
-import type { AppSyncResolverEvent } from "aws-lambda";
+import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
 import { UserEntity } from "../../lib/entities/user.js";
 import { AppError } from "../../lib/errors.js";
 
 export async function handler(event: AppSyncResolverEvent<never>) {
-  const userId = event.identity?.resolverContext?.userId;
+  const identity = event.identity as AppSyncIdentityLambda | null;
+  const userId = identity?.resolverContext?.userId;
   if (!userId) {
     throw new AppError("AUTH_FAILED", "Not authenticated");
   }

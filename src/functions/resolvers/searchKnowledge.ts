@@ -1,4 +1,4 @@
-import type { AppSyncResolverEvent } from "aws-lambda";
+import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
 import { logger } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { UserEntity } from "../../lib/entities/user.js";
@@ -17,7 +17,8 @@ interface SearchArgs {
 export async function handler(
   event: AppSyncResolverEvent<SearchArgs>,
 ): Promise<SearchResult[]> {
-  const userId = event.identity?.resolverContext?.userId;
+  const identity = event.identity as AppSyncIdentityLambda | null;
+  const userId = identity?.resolverContext?.userId;
   if (!userId) {
     throw new AppError("AUTH_FAILED", "Not authenticated");
   }

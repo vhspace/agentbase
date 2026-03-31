@@ -1,4 +1,4 @@
-import type { AppSyncResolverEvent } from "aws-lambda";
+import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
 import { logger } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { storeEmbedding } from "../../lib/embeddings.js";
@@ -11,7 +11,8 @@ const MAX_CONTENT_SIZE = 256 * 1024;
 export async function handler(
   event: AppSyncResolverEvent<{ id: string; input: UpdateKnowledgeInput }>,
 ) {
-  const userId = event.identity?.resolverContext?.userId;
+  const identity = event.identity as AppSyncIdentityLambda | null;
+  const userId = identity?.resolverContext?.userId;
   if (!userId) {
     throw new AppError("AUTH_FAILED", "Not authenticated");
   }

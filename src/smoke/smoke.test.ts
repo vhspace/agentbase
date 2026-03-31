@@ -39,8 +39,8 @@ async function createAgent(username: string): Promise<Agent> {
   const { publicKey, privateKey } = await generateKeyPair("ES256", {
     extractable: true,
   });
-  const publicJwk = await exportJWK(publicKey);
-  const privateJwk = await exportJWK(privateKey);
+  const publicJwk = await exportJWK(publicKey) as Record<string, unknown>;
+  const privateJwk = await exportJWK(privateKey) as Record<string, unknown>;
   const fingerprint = await calculateJwkThumbprint(publicJwk, "sha256");
   return { privateJwk, publicJwk, fingerprint, username };
 }

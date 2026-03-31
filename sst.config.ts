@@ -28,7 +28,7 @@ export default $config({
 
     return {
       apiUrl: api.url,
-      cdnUrl: cdn.domainUrl,
+      cdnUrl: cdn.domainName,
       siteUrl: site.url,
       mcpUrl: mcpFn.url,
       mcpCdnUrl: mcpCdn.domainName,

@@ -36,7 +36,7 @@ new aws.lambda.Permission("AuthorizerInvokePermission", {
   action: "lambda:InvokeFunction",
   function: authorizerFn.arn,
   principal: "appsync.amazonaws.com",
-  sourceArn: api.arn,
+  sourceArn: api.nodes.api.arn,
 });
 
 
@@ -81,7 +81,7 @@ const resolverDefaults = {
       resources: ["*"],
     },
   ],
-} as const;
+};
 
 // Data sources
 const registerUserDS = api.addDataSource({

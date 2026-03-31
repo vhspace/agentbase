@@ -1,4 +1,4 @@
-import type { AppSyncResolverEvent } from "aws-lambda";
+import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { AppError } from "../../lib/errors.js";
 
@@ -9,7 +9,8 @@ interface ListArgs {
 }
 
 export async function handler(event: AppSyncResolverEvent<ListArgs>) {
-  const userId = event.identity?.resolverContext?.userId;
+  const identity = event.identity as AppSyncIdentityLambda | null;
+  const userId = identity?.resolverContext?.userId;
   if (!userId) {
     throw new AppError("AUTH_FAILED", "Not authenticated");
   }
@@ -17,12 +18,10 @@ export async function handler(event: AppSyncResolverEvent<ListArgs>) {
   const { topic, limit: rawLimit, nextToken } = event.arguments;
   const limit = Math.min(Math.max(rawLimit ?? 20, 1), 100);
 
-  let query = KnowledgeEntity.query.byUserAndTopic({ userId });
+  const baseQuery = KnowledgeEntity.query.byUserAndTopic({ userId });
 
   // If topic provided, use begins_with on SK for efficient filtering
-  if (topic) {
-    query = query.begins({ topic });
-  }
+  const query = topic ? baseQuery.begins({ topic }) : baseQuery;
 
   const options: Record<string, unknown> = { limit };
   if (nextToken) {
