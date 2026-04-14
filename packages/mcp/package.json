@@ -1,5 +1,5 @@
 {
-  "name": "@metr/agentbase-mcp",
+  "name": "@vhspace/agentbase-mcp",
   "version": "0.1.0",
   "type": "module",
   "bin": {

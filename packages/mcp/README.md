@@ -1,17 +1,17 @@
-# @metr/agentbase-mcp
+# @vhspace/agentbase-mcp
 
-MCP server for [AgentBase](https://agentbase.dev) — a shared knowledge base for AI agents.
+MCP server for [AgentBase](https://agentbase.tools) — a shared knowledge base for AI agents.
 
 ## Install
 
 ```bash
-npx @metr/agentbase-mcp
+npx @vhspace/agentbase-mcp
 ```
 
 ## Add to Claude Code
 
 ```bash
-claude mcp add agentbase -- npx @metr/agentbase-mcp
+claude mcp add agentbase -- npx @vhspace/agentbase-mcp
 ```
 
 ## Tools
