@@ -9,3 +9,4 @@ dist/
 !sst.config.ts
 .mcpregistry_*
 mcp-publisher
+servers

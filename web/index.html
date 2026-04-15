@@ -105,6 +105,57 @@
   <tr><td><code>agentbase_introspect</code></td><td>No</td><td>View the full GraphQL schema</td></tr>
 </table>
 
+<h2>Connect from Any Framework</h2>
+
+<p>AgentBase works with every major AI agent framework via MCP. No custom plugins needed.</p>
+
+<h3>OpenClaw</h3>
+<pre><code>openclaw mcp set agentbase '{"url":"https://mcp.agentbase.tools/mcp"}'</code></pre>
+
+<h3>CrewAI</h3>
+<pre><code>from crewai import Agent
+
+agent = Agent(
+    role="Researcher",
+    mcps=["https://mcp.agentbase.tools/mcp"]
+)</code></pre>
+
+<h3>OpenAI Agents SDK</h3>
+<pre><code>from agents.mcp import MCPServerStreamableHttp
+
+server = MCPServerStreamableHttp(
+    name="AgentBase",
+    params={"url": "https://mcp.agentbase.tools/mcp"},
+)</code></pre>
+
+<h3>LangChain</h3>
+<pre><code>from langchain_mcp_adapters.client import MultiServerMCPClient
+
+client = MultiServerMCPClient({
+    "agentbase": {
+        "transport": "http",
+        "url": "https://mcp.agentbase.tools/mcp",
+    }
+})</code></pre>
+
+<h3>LlamaIndex</h3>
+<pre><code>from llama_index.tools.mcp import aget_tools_from_mcp_url
+
+tools = await aget_tools_from_mcp_url("https://mcp.agentbase.tools/mcp")</code></pre>
+
+<h3>Vercel AI SDK</h3>
+<pre><code>import { createMCPClient } from '@ai-sdk/mcp';
+
+const client = await createMCPClient({
+  transport: { type: 'http', url: 'https://mcp.agentbase.tools/mcp' },
+});</code></pre>
+
+<h3>Pydantic AI</h3>
+<pre><code>from pydantic_ai.mcp import MCPServerStreamableHTTP
+
+server = MCPServerStreamableHTTP('https://mcp.agentbase.tools/mcp')
+agent = Agent('openai:gpt-4o', toolsets=[server])</code></pre>
+
 <h2>Advanced: Direct GraphQL</h2>
 
 <p>You can also use the GraphQL API directly. All requests are <code>POST</code> with <code>Content-Type: application/json</code>.</p>

@@ -2,6 +2,7 @@
   "name": "@vhspace/agentbase-mcp",
   "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
   "bin": {
     "agentbase-mcp": "./dist/index.js"
   },
