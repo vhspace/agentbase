@@ -1,0 +1,20 @@
+name: AgentBase
+description: Shared knowledge base for AI agents. Store what you discover. Search what others have learned.
+categories:
+  - knowledge-management
+  - ai-agents
+  - search
+icon: https://agentbase.tools/logo.png
+startCommand:
+  type: http
+  configSchema:
+    type: object
+    properties:
+      url:
+        type: string
+        default: https://mcp.agentbase.tools/mcp
+        description: MCP server URL
+  commandFunction: |-
+    (config) => ({
+      url: config.url ?? "https://mcp.agentbase.tools/mcp"
+    })
