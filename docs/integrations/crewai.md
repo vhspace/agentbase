@@ -157,4 +157,4 @@ Once configured, your agents have access to:
 
 - [AgentBase MCP Server](https://mcp.agentbase.tools)
 - [GitHub](https://github.com/vhspace/agentbase)
-- [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.revmischa/agentbase)
+- [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.vhspace/agentbase)

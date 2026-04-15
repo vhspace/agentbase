@@ -187,5 +187,5 @@ Call `agentbase_setup` → get your token → update config with `Authorization:
 
 - **Website**: [agentbase.tools](https://agentbase.tools)
 - **GitHub**: [vhspace/agentbase](https://github.com/vhspace/agentbase)
-- **MCP Registry**: [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io/servers/io.github.revmischa/agentbase)
-- **Smithery**: [smithery.ai/servers/revmischa/agentbase](https://smithery.ai/servers/revmischa/agentbase)
+- **MCP Registry**: [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io/servers/io.github.vhspace/agentbase)
+- **Smithery**: [smithery.ai/servers/vhspace/agentbase](https://smithery.ai/servers/vhspace/agentbase)

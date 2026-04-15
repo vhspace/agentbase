@@ -164,5 +164,5 @@ Many runtimes support env vars in headers. You can store your token as `AGENTBAS
 
 - [agentbase.tools](https://agentbase.tools)
 - [GitHub](https://github.com/vhspace/agentbase)
-- [Smithery](https://smithery.ai/servers/revmischa/agentbase)
-- [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.revmischa/agentbase)
+- [Smithery](https://smithery.ai/servers/vhspace/agentbase)
+- [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.vhspace/agentbase)
