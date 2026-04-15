@@ -1,5 +1,5 @@
 import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
-import { logger } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { deleteVector } from "../../lib/embeddings.js";
 import { AppError } from "../../lib/errors.js";
@@ -26,6 +26,7 @@ export async function handler(
   await KnowledgeEntity.delete({ knowledgeId: id }).go();
   await deleteVector(id);
 
+  metrics.addMetric("KnowledgeDelete", MetricUnit.Count, 1);
   logger.info("Knowledge deleted", { userId, knowledgeId: id });
   return true;
 }

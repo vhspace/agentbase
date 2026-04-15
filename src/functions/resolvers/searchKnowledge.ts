@@ -1,5 +1,5 @@
 import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
-import { logger } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { UserEntity } from "../../lib/entities/user.js";
 import { queryVectors } from "../../lib/embeddings.js";
@@ -85,6 +85,9 @@ export async function handler(
 
   // Sort by score descending
   results.sort((a, b) => b.score - a.score);
+
+  metrics.addMetric("KnowledgeSearch", MetricUnit.Count, 1);
+  metrics.addMetric("SearchResultCount", MetricUnit.Count, results.length);
 
   logger.info("Search completed", {
     userId,

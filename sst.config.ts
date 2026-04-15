@@ -25,6 +25,7 @@ export default $config({
     const { cdn } = await import("./infra/cdn");
     const { site } = await import("./infra/website");
     const { mcpFn, mcpCdn } = await import("./infra/mcp");
+    await import("./infra/dashboard");
 
     return {
       apiUrl: api.url,

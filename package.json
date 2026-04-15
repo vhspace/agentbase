@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.0.0",
+    "@aws-lambda-powertools/metrics": "^2.32.0",
     "@aws-lambda-powertools/tracer": "^2.0.0",
     "@aws-sdk/client-bedrock-runtime": "^3.700.0",
     "@aws-sdk/client-dynamodb": "^3.700.0",

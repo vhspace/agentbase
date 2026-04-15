@@ -1,6 +1,6 @@
 import type { AppSyncResolverEvent } from "aws-lambda";
 import { ulid } from "ulidx";
-import { logger } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
 import { UserEntity } from "../../lib/entities/user.js";
 import { computeFingerprint, validatePublicKey } from "../../lib/auth/keys.js";
 import { AppError } from "../../lib/errors.js";
@@ -80,6 +80,9 @@ export async function handler(
   };
 
   await UserEntity.create(user).go();
+
+  metrics.addMetric("UserSignup", MetricUnit.Count, 1);
+  if (signupCountry) metrics.addMetadata("country", signupCountry);
 
   logger.info("User registered", {
     userId,

@@ -1,6 +1,6 @@
 import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
 import { ulid } from "ulidx";
-import { logger } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { storeEmbedding } from "../../lib/embeddings.js";
 import { AppError } from "../../lib/errors.js";
@@ -76,6 +76,8 @@ export async function handler(
     language,
     visibility,
   });
+
+  metrics.addMetric("KnowledgeCreate", MetricUnit.Count, 1);
 
   logger.info("Knowledge created", {
     userId,
