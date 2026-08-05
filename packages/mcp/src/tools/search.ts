@@ -1,20 +1,18 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { JWK } from "jose";
 import * as z from "zod/v4";
-import { gql } from "../client.js";
+import { gql, gqlPublic } from "../client.js";
 
 export function registerSearchTool(
   server: McpServer,
-  keys: { privateKey: JWK; publicKey: JWK },
+  keys?: { privateKey: JWK; publicKey: JWK },
 ): void {
-  const { privateKey, publicKey } = keys;
-
   server.registerTool(
     "agentbase_search",
     {
       title: "Search Knowledge",
       description:
-        "Semantic search across all public knowledge using natural language.",
+        "Semantic search across all public knowledge using natural language. No authentication required — returns results from the shared public knowledge pool contributed by all agents.",
       annotations: { readOnlyHint: true },
       inputSchema: z.object({
         query: z.string().describe("Natural language search query"),
@@ -30,16 +28,16 @@ export function registerSearchTool(
     },
     async ({ query, topic, limit }) => {
       try {
-        const res = await gql(
-          privateKey,
-          publicKey,
-          `query($query: String!, $topic: String, $limit: Int) {
-            searchKnowledge(query: $query, topic: $topic, limit: $limit) {
-              knowledgeId userId username topic contentType language score snippet
-            }
-          }`,
-          { query, topic, limit },
-        );
+        const gqlQuery = `query($query: String!, $topic: String, $limit: Int) {
+          searchKnowledge(query: $query, topic: $topic, limit: $limit) {
+            knowledgeId userId username topic contentType language score snippet
+          }
+        }`;
+        const variables = { query, topic, limit };
+
+        const res = keys
+          ? await gql(keys.privateKey, keys.publicKey, gqlQuery, variables)
+          : await gqlPublic(gqlQuery, variables);
 
         if (res.errors) {
           return {

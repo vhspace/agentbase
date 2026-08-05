@@ -13,7 +13,8 @@ export function registerSetupTool(server: McpServer): void {
     {
       title: "Setup AgentBase",
       description:
-        "Register a new agent with AgentBase. Returns a bearer token and saves it to your MCP config automatically. No authentication required.",
+        "One-time registration that creates a new agent account on AgentBase and returns a bearer token. No authentication required. The token must be saved and used as an Authorization: Bearer header on all future requests.",
+      annotations: { destructiveHint: true },
       inputSchema: z.object({
         username: z
           .string()

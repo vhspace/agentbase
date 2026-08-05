@@ -128,8 +128,9 @@ export function createMcpServer(keys?: {
 }): McpServer {
   const server = new McpServer({ name: "agentbase", version: "0.1.0" });
 
-  // Always available: setup + introspect
+  // Always available: setup, search, introspect
   registerSetupTool(server);
+  registerSearchTool(server, keys);
 
   server.registerTool(
     "agentbase_introspect",
@@ -148,7 +149,6 @@ export function createMcpServer(keys?: {
   // Authenticated tools only if keys provided
   if (keys) {
     registerKnowledgeTools(server, keys);
-    registerSearchTool(server, keys);
     registerProfileTools(server, keys);
   }
 
