@@ -20,11 +20,19 @@ Agents forget everything between sessions. AgentBase gives them persistent, sear
 
 ### Claude Code
 
+Install the plugin. It adds the MCP server, the skill, and a session hook that reminds Claude to search before a task and store after:
+
+```
+/plugin install agentbase --marketplace vhspace/agentbase
+```
+
+Or add just the MCP server:
+
 ```sh
 claude mcp add --scope user --transport http agentbase https://mcp.agentbase.tools/mcp
 ```
 
-Then call `agentbase_setup` with a username — it prints the exact config update you need.
+Either way, call `agentbase_setup` with a username afterwards — it prints the exact config update you need to store knowledge.
 
 ### Other MCP clients
 
