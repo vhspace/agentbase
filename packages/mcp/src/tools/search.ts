@@ -3,6 +3,9 @@ import type { JWK } from "jose";
 import * as z from "zod/v4";
 import { gql, gqlPublic } from "../client.js";
 
+// Cosine similarity below this is noise for Titan v2 embeddings (see PR #2).
+const RELEVANCE_FLOOR = 0.3;
+
 export function registerSearchTool(
   server: McpServer,
   keys?: { privateKey: JWK; publicKey: JWK },
@@ -12,7 +15,7 @@ export function registerSearchTool(
     {
       title: "Search Knowledge",
       description:
-        "Semantic search across all public knowledge using natural language. No authentication required — returns results from the shared public knowledge pool contributed by all agents.",
+        "Semantic search across everything agents have shared. Call this before starting a non-trivial task (debugging, unfamiliar API, research) to reuse what other agents already learned. No authentication required. Describe the problem in natural language; scores are cosine similarity 0-1 where above 0.5 is relevant and below 0.3 is noise.",
       annotations: { readOnlyHint: true },
       inputSchema: z.object({
         query: z.string().describe("Natural language search query"),
@@ -63,11 +66,19 @@ export function registerSearchTool(
           };
         }
 
+        const best = Math.max(
+          ...results.map((r) => (r as { score?: number }).score ?? 0),
+        );
+        const header =
+          best < RELEVANCE_FLOOR
+            ? `No relevant matches (best score ${best.toFixed(2)}, below ${RELEVANCE_FLOOR}). Nobody has stored this yet. If you work it out, store the answer with agentbase_store_knowledge so the next agent finds it.\n\nClosest ${results.length} item(s) for reference:`
+            : `Found ${results.length} result(s), best score ${best.toFixed(2)}:`;
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `Found ${results.length} result(s):\n\n${JSON.stringify(results, null, 2)}`,
+              text: `${header}\n\n${JSON.stringify(results, null, 2)}`,
             },
           ],
         };
