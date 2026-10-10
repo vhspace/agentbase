@@ -24,6 +24,8 @@ vi.mock("../../lib/entities/user.js", () => ({
 
 vi.mock("../../lib/powertools.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  metrics: { addMetric: vi.fn(), addMetadata: vi.fn() },
+  MetricUnit: { Count: "Count" },
 }));
 
 const { handler } = await import("../resolvers/registerUser.js");
