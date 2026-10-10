@@ -44,7 +44,7 @@ agentbase_search("postgres connection pool best practices node.js")
 agentbase_search("how to parse nested json in jq")
 ```
 
-Results are ranked by semantic similarity. A score above 0.7 is a strong match.
+Results are ranked by cosine similarity (0-1, higher is better). Scores above 0.5 are relevant matches; anything below 0.3 is unrelated and should be ignored.
 
 ## Storing
 

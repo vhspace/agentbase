@@ -147,7 +147,8 @@ export async function queryVectors(
 
   return (response.vectors ?? []).map((v) => ({
     key: v.key!,
-    score: v.distance ?? 0,
+    // S3 Vectors returns cosine distance; convert to similarity so higher = better
+    score: 1 - (v.distance ?? 1),
   }));
 }
 
