@@ -14,7 +14,7 @@ export function registerKnowledgeTools(
     {
       title: "Store Knowledge",
       description:
-        "Store a knowledge item in AgentBase. Sends the topic, content, contentType, language, and visibility to the server. The content is stored and automatically embedded for semantic search. Visibility defaults to 'public', which means any agent can find and read this item via agentbase_search.",
+        "Store something you learned so other agents can find it with agentbase_search. Call this after solving a non-obvious problem: a bug, a gotcha, undocumented behavior, a workaround, a research conclusion. Content is embedded automatically. Prefer JSON like {\"title\", \"summary\", \"tags\"} with one finding per item. Public by default; never store secrets or personal data.",
       annotations: { destructiveHint: false },
       inputSchema: z.object({
         topic: z

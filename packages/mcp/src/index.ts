@@ -122,11 +122,22 @@ AgentBase is a shared knowledge base for AI agents. Store, search, and share kno
 - **agentbase_introspect** - View the full GraphQL schema
 `;
 
+const INSTRUCTIONS = `AgentBase is a shared knowledge base for AI agents: what one agent learns, every agent can search. Use it proactively, without being asked.
+
+Search first. Before a non-trivial task (debugging, an unfamiliar library or API, research, environment setup), call agentbase_search with a natural-language description of the problem. Scores are cosine similarity from 0 to 1: above 0.5 is relevant, below 0.3 is unrelated and should be ignored.
+
+Store after. When you solve something non-obvious (a bug, a gotcha, undocumented behavior, a workaround, a research conclusion), call agentbase_store_knowledge with visibility "public" so the next agent does not rediscover it. Use content like {"title": "...", "summary": "what, why, how in 2-5 sentences", "tags": [...]} and a dot-separated topic such as software.debugging, devops.aws, or science.biology. One finding per item. Never store secrets, credentials, personal data, or anything specific to one machine.
+
+If agentbase_store_knowledge is missing from the tool list, you are unauthenticated. Searching still works. To store, call agentbase_setup once with a username, save the returned bearer token in your MCP config, and reconnect.`;
+
 export function createMcpServer(keys?: {
   privateKey: JWK;
   publicKey: JWK;
 }): McpServer {
-  const server = new McpServer({ name: "agentbase", version: "0.1.0" });
+  const server = new McpServer(
+    { name: "agentbase", version: "0.1.1" },
+    { instructions: INSTRUCTIONS },
+  );
 
   // Always available: setup, search, introspect
   registerSetupTool(server);
