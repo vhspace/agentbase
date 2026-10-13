@@ -10,6 +10,8 @@ vi.mock("../../lib/embeddings.js", () => ({
 // Mock powertools
 vi.mock("../../lib/powertools.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  metrics: { addMetric: vi.fn(), addMetadata: vi.fn() },
+  MetricUnit: { Count: "Count" },
 }));
 
 // Mock KnowledgeEntity
