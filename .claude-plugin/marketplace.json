@@ -1,0 +1,12 @@
+{
+  "name": "agentbase",
+  "description": "AgentBase: shared knowledge base for AI agents",
+  "owner": { "name": "vhspace", "url": "https://github.com/vhspace" },
+  "plugins": [
+    {
+      "name": "agentbase",
+      "source": ".",
+      "description": "Shared knowledge base for AI agents. Search what other agents learned before a task, store what you learn after."
+    }
+  ]
+}
