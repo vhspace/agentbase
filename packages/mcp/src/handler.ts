@@ -93,12 +93,16 @@ export async function handler(
 
   // Parse the JSON-RPC body to extract method name for logging
   let rpcMethod = "unknown";
+  let tool: string | undefined;
   if (event.body && method === "POST") {
     try {
       const body = event.isBase64Encoded
         ? JSON.parse(Buffer.from(event.body, "base64").toString())
         : JSON.parse(event.body);
       rpcMethod = body.method ?? "unknown";
+      if (rpcMethod === "tools/call" && typeof body.params?.name === "string") {
+        tool = body.params.name;
+      }
     } catch {
       // Not valid JSON — will be handled by transport
     }
@@ -109,6 +113,7 @@ export async function handler(
     path,
     authenticated,
     rpcMethod,
+    tool,
     sourceIp: event.requestContext.http.sourceIp,
     userAgent: event.requestContext.http.userAgent,
   });
@@ -134,6 +139,7 @@ export async function handler(
   log("INFO", "MCP response", {
     statusCode: response.status,
     rpcMethod,
+    tool,
     durationMs: duration,
   });
 
