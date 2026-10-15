@@ -46,6 +46,31 @@ export async function handler(
     };
   }
 
+  // Stateless server: there is no standalone SSE stream to subscribe to, so
+  // GET must be refused up front. Letting the SDK handle it opens a
+  // ReadableStream that never closes, the Lambda hangs, and clients see a 502
+  // and reconnect in a loop. HEAD and DELETE (session teardown) likewise.
+  if (method !== "POST") {
+    log("INFO", "MCP request", {
+      method,
+      path,
+      host: event.headers?.["host"],
+      sourceIp: event.requestContext.http.sourceIp,
+      userAgent: event.requestContext.http.userAgent,
+      rpcMethod: "unknown",
+      rejected: "method_not_allowed",
+    });
+    return {
+      statusCode: 405,
+      headers: { "content-type": "application/json", allow: "POST" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Method not allowed. This server is stateless; send JSON-RPC over POST." },
+        id: null,
+      }),
+    };
+  }
+
   // Reject non-JSON-RPC requests (e.g. OAuth token requests) before they
   // hit the transport, which would return a JSON-RPC error that MCP clients
   // can't parse as an OAuth response.
@@ -94,6 +119,7 @@ export async function handler(
   // Parse the JSON-RPC body to extract method name for logging
   let rpcMethod = "unknown";
   let tool: string | undefined;
+  let client: { name?: string; version?: string; protocolVersion?: string } = {};
   if (event.body && method === "POST") {
     try {
       const body = event.isBase64Encoded
@@ -103,20 +129,41 @@ export async function handler(
       if (rpcMethod === "tools/call" && typeof body.params?.name === "string") {
         tool = body.params.name;
       }
+      if (rpcMethod === "initialize") {
+        client = {
+          name: body.params?.clientInfo?.name,
+          version: body.params?.clientInfo?.version,
+          protocolVersion: body.params?.protocolVersion,
+        };
+      }
     } catch {
       // Not valid JSON — will be handled by transport
     }
   }
 
-  log("INFO", "MCP request", {
+  // Behind CloudFront the connecting IP is an edge node; the real client is
+  // the first hop in X-Forwarded-For. Direct Lambda URL hits have no Via.
+  const forwardedFor = event.headers?.["x-forwarded-for"];
+  const clientIp = forwardedFor?.split(",")[0]?.trim() || event.requestContext.http.sourceIp;
+
+  const requestContext = {
     method,
     path,
+    host: event.headers?.["host"],
+    viaCdn: !!event.headers?.["via"],
+    clientIp,
+    sourceIp: event.requestContext.http.sourceIp,
+    userAgent: event.requestContext.http.userAgent,
     authenticated,
     rpcMethod,
     tool,
-    sourceIp: event.requestContext.http.sourceIp,
-    userAgent: event.requestContext.http.userAgent,
-  });
+    clientName: client.name,
+    clientVersion: client.version,
+    protocolVersion: client.protocolVersion ?? event.headers?.["mcp-protocol-version"],
+    sessionId: event.headers?.["mcp-session-id"],
+  };
+
+  log("INFO", "MCP request", requestContext);
 
   const server = createMcpServer(keys);
   const transport = new WebStandardStreamableHTTPServerTransport({
@@ -136,10 +183,23 @@ export async function handler(
   const body = await response.text();
   const duration = Date.now() - start;
 
+  let toolError: boolean | undefined;
+  if (tool && response.status === 200) {
+    try {
+      toolError = JSON.parse(body)?.result?.isError === true;
+    } catch {
+      // streamed or non-JSON body; leave undefined
+    }
+  }
+
   log("INFO", "MCP response", {
     statusCode: response.status,
     rpcMethod,
     tool,
+    toolError,
+    clientName: client.name,
+    userAgent: event.requestContext.http.userAgent,
+    authenticated,
     durationMs: duration,
   });
 
