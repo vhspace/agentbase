@@ -72,3 +72,19 @@ describe("server guidance for agents", () => {
     expect(text).toMatch(/^Found 1 result\(s\), best score 0\.76/);
   });
 });
+
+describe("agentbase_setup", () => {
+  it("tells plugin users how to save the token with one command", async () => {
+    gqlPublic.mockResolvedValue({
+      data: { registerUser: { userId: "u1", username: "tester", publicKeyFingerprint: "fp" } },
+    });
+    const client = await connect();
+    const res = await client.callTool({
+      name: "agentbase_setup",
+      arguments: { username: "tester" },
+    });
+    const text = (res.content as Array<{ text: string }>)[0].text;
+    expect(text).toMatch(/claude plugin install agentbase@agentbase --config api_token=\S+/);
+    expect(text).toContain("claude mcp add --scope user");
+  });
+});
