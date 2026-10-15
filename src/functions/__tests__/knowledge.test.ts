@@ -11,6 +11,7 @@ vi.mock("../../lib/embeddings.js", () => ({
 vi.mock("../../lib/powertools.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   metrics: { addMetric: vi.fn(), addMetadata: vi.fn() },
+  withMetrics: (fn: unknown) => fn,
   MetricUnit: { Count: "Count" },
 }));
 

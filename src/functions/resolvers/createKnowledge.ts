@@ -1,6 +1,6 @@
 import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
 import { ulid } from "ulidx";
-import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit, withMetrics } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { storeEmbedding } from "../../lib/embeddings.js";
 import { AppError } from "../../lib/errors.js";
@@ -10,7 +10,7 @@ const TOPIC_RE = /^[a-z0-9][a-z0-9.\-]{0,126}[a-z0-9]$/;
 const MAX_CONTENT_SIZE = 256 * 1024; // 256KB
 const MAX_ITEMS_PER_USER = 10_000;
 
-export async function handler(
+async function resolve(
   event: AppSyncResolverEvent<{ input: CreateKnowledgeInput }>,
 ) {
   const identity = event.identity as AppSyncIdentityLambda | null;
@@ -88,3 +88,5 @@ export async function handler(
 
   return item;
 }
+
+export const handler = withMetrics(resolve);

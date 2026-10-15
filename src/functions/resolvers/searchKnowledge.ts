@@ -1,5 +1,5 @@
 import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
-import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit, withMetrics } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { UserEntity } from "../../lib/entities/user.js";
 import { queryVectors } from "../../lib/embeddings.js";
@@ -13,7 +13,7 @@ interface SearchArgs {
   limit?: number;
 }
 
-export async function handler(
+async function resolve(
   event: AppSyncResolverEvent<SearchArgs>,
 ): Promise<SearchResult[]> {
   const identity = event.identity as AppSyncIdentityLambda | null;
@@ -94,3 +94,5 @@ export async function handler(
 
   return results;
 }
+
+export const handler = withMetrics(resolve);

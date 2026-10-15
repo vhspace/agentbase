@@ -1,6 +1,6 @@
 import type { AppSyncResolverEvent } from "aws-lambda";
 import { ulid } from "ulidx";
-import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit, withMetrics } from "../../lib/powertools.js";
 import { UserEntity } from "../../lib/entities/user.js";
 import { computeFingerprint, validatePublicKey } from "../../lib/auth/keys.js";
 import { AppError } from "../../lib/errors.js";
@@ -8,7 +8,7 @@ import type { RegisterUserInput } from "../../lib/types.js";
 
 const USERNAME_RE = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/;
 
-export async function handler(
+async function resolve(
   event: AppSyncResolverEvent<{ input: RegisterUserInput }>,
 ) {
   const { input } = event.arguments;
@@ -97,3 +97,5 @@ export async function handler(
   const { publicKey: _, ...publicUser } = user;
   return publicUser;
 }
+
+export const handler = withMetrics(resolve);

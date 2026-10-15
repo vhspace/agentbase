@@ -30,3 +30,23 @@ export function createMiddyHandler<TEvent, TResult>(
     .use(logMetrics(metrics, { captureColdStartMetric: true }))
     .use(captureLambdaHandler(tracer));
 }
+
+/**
+ * Wrap a resolver so metrics added with metrics.addMetric() actually reach
+ * CloudWatch. Powertools buffers metrics in memory and only writes the EMF
+ * blob on publishStoredMetrics(); nothing was calling it, so the AgentBase
+ * namespace stayed empty.
+ */
+export function withMetrics<TEvent, TResult>(
+  handler: (event: TEvent) => Promise<TResult>,
+): (event: TEvent) => Promise<TResult> {
+  return async (event) => {
+    metrics.captureColdStartMetric();
+    try {
+      return await handler(event);
+    } finally {
+      metrics.publishStoredMetrics();
+    }
+  };
+}
+
