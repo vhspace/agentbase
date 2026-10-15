@@ -1,10 +1,10 @@
 import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
-import { logger, metrics, MetricUnit } from "../../lib/powertools.js";
+import { logger, metrics, MetricUnit, withMetrics } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { deleteVector } from "../../lib/embeddings.js";
 import { AppError } from "../../lib/errors.js";
 
-export async function handler(
+async function resolve(
   event: AppSyncResolverEvent<{ id: string }>,
 ) {
   const identity = event.identity as AppSyncIdentityLambda | null;
@@ -30,3 +30,5 @@ export async function handler(
   logger.info("Knowledge deleted", { userId, knowledgeId: id });
   return true;
 }
+
+export const handler = withMetrics(resolve);
