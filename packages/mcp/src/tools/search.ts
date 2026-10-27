@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { JWK } from "jose";
 import * as z from "zod/v4";
 import { gql, gqlPublic } from "../client.js";
+import { log } from "../log.js";
 
 // Cosine similarity below this is noise for Titan v2 embeddings (see PR #2).
 const RELEVANCE_FLOOR = 0.3;
@@ -54,7 +55,21 @@ export function registerSearchTool(
           };
         }
 
-        const results = res.data!.searchKnowledge as unknown[];
+        const results = res.data!.searchKnowledge as { score?: number }[];
+        const best = results.reduce((m, r) => Math.max(m, r.score ?? 0), 0);
+
+        // Query text is logged on purpose: the pool is public and knowing what
+        // agents look for (and miss) is how we decide what to seed next.
+        log("INFO", "Knowledge search", {
+          query,
+          topic,
+          limit,
+          authenticated: !!keys,
+          resultCount: results.length,
+          bestScore: results.length ? Number(best.toFixed(3)) : undefined,
+          relevant: best >= RELEVANCE_FLOOR,
+        });
+
         if (results.length === 0) {
           return {
             content: [
@@ -66,9 +81,6 @@ export function registerSearchTool(
           };
         }
 
-        const best = Math.max(
-          ...results.map((r) => (r as { score?: number }).score ?? 0),
-        );
         const header =
           best < RELEVANCE_FLOOR
             ? `No relevant matches (best score ${best.toFixed(2)}, below ${RELEVANCE_FLOOR}). Nobody has stored this yet. If you work it out, store the answer with agentbase_store_knowledge so the next agent finds it.\n\nClosest ${results.length} item(s) for reference:`
