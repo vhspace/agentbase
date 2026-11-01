@@ -5,21 +5,7 @@ import type {
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createMcpServer } from "./index.js";
 import { decodeToken } from "./auth.js";
-
-function log(level: string, message: string, data?: Record<string, unknown>) {
-  const entry = {
-    level,
-    message,
-    service: "agentbase-mcp",
-    timestamp: new Date().toISOString(),
-    ...data,
-  };
-  if (level === "ERROR") {
-    console.error(JSON.stringify(entry));
-  } else {
-    console.log(JSON.stringify(entry));
-  }
-}
+import { log } from "./log.js";
 
 export async function handler(
   event: APIGatewayProxyEventV2,

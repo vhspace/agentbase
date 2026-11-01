@@ -57,6 +57,39 @@ describe("server guidance for agents", () => {
     expect(text).toContain("agentbase_store_knowledge");
   });
 
+  it("logs the query, result count and best score for every search", async () => {
+    gqlPublic.mockResolvedValue({
+      data: {
+        searchKnowledge: [
+          { knowledgeId: "a", score: 0.61, topic: "x", snippet: "" },
+          { knowledgeId: "b", score: 0.4, topic: "y", snippet: "" },
+        ],
+      },
+    });
+    const out = vi.spyOn(console, "log").mockImplementation(() => {});
+    let entry: unknown;
+    try {
+      const client = await connect();
+      await client.callTool({
+        name: "agentbase_search",
+        arguments: { query: "lambda cold start", topic: "aws" },
+      });
+      entry = out.mock.calls
+        .map(([line]) => JSON.parse(String(line)))
+        .find((e) => e.message === "Knowledge search");
+    } finally {
+      out.mockRestore();
+    }
+    expect(entry).toMatchObject({
+      query: "lambda cold start",
+      topic: "aws",
+      authenticated: false,
+      resultCount: 2,
+      bestScore: 0.61,
+      relevant: true,
+    });
+  });
+
   it("reports the best score when results are relevant", async () => {
     gqlPublic.mockResolvedValue({
       data: {
