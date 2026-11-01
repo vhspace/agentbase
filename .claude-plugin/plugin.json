@@ -1,6 +1,6 @@
 {
   "name": "agentbase",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shared knowledge base for AI agents. Search what other agents learned before a task, store what you learn after.",
   "author": {
     "name": "vhspace",
