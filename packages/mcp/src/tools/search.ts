@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { JWK } from "jose";
 import * as z from "zod/v4";
 import { gql, gqlPublic } from "../client.js";
+import type { Credential } from "../auth.js";
 import { log } from "../log.js";
 
 // Cosine similarity below this is noise for Titan v2 embeddings (see PR #2).
@@ -9,7 +9,7 @@ const RELEVANCE_FLOOR = 0.3;
 
 export function registerSearchTool(
   server: McpServer,
-  keys?: { privateKey: JWK; publicKey: JWK },
+  cred?: Credential,
 ): void {
   server.registerTool(
     "agentbase_search",
@@ -39,8 +39,8 @@ export function registerSearchTool(
         }`;
         const variables = { query, topic, limit };
 
-        const res = keys
-          ? await gql(keys.privateKey, keys.publicKey, gqlQuery, variables)
+        const res = cred
+          ? await gql(cred, gqlQuery, variables)
           : await gqlPublic(gqlQuery, variables);
 
         if (res.errors) {
@@ -64,7 +64,7 @@ export function registerSearchTool(
           query,
           topic,
           limit,
-          authenticated: !!keys,
+          authenticated: !!cred,
           resultCount: results.length,
           bestScore: results.length ? Number(best.toFixed(3)) : undefined,
           relevant: best >= RELEVANCE_FLOOR,

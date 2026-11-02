@@ -4,8 +4,11 @@ import type {
 } from "aws-lambda";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createMcpServer } from "./index.js";
-import { decodeToken } from "./auth.js";
+import { parseAuthorization } from "./auth.js";
 import { log } from "./log.js";
+
+const MCP_ORIGIN = new URL(process.env.MCP_URL ?? "https://mcp.agentbase.tools/mcp").origin;
+const RESOURCE_METADATA_URL = `${MCP_ORIGIN}/.well-known/oauth-protected-resource`;
 
 export async function handler(
   event: APIGatewayProxyEventV2,
@@ -23,7 +26,8 @@ export async function handler(
     };
   }
 
-  // OAuth discovery — we use bearer tokens, not OAuth, so return 404
+  // OAuth discovery is served by the authorization server Lambda, which
+  // CloudFront routes to on mcp.agentbase.tools. Direct Lambda URL hits land here.
   if (path.startsWith("/.well-known/")) {
     return {
       statusCode: 404,
@@ -57,9 +61,8 @@ export async function handler(
     };
   }
 
-  // Reject non-JSON-RPC requests (e.g. OAuth token requests) before they
-  // hit the transport, which would return a JSON-RPC error that MCP clients
-  // can't parse as an OAuth response.
+  // Reject non-JSON-RPC requests before they hit the transport, which would
+  // return a JSON-RPC error that clients can't parse.
   const contentType = event.headers?.["content-type"] ?? "";
   if (method === "POST" && !contentType.includes("application/json")) {
     return {
@@ -67,7 +70,7 @@ export async function handler(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         error: "unsupported_media_type",
-        error_description: "This server accepts application/json only. OAuth is not supported — use a bearer token.",
+        error_description: "This server accepts application/json only.",
       }),
     };
   }
@@ -90,16 +93,41 @@ export async function handler(
         : undefined,
   });
 
-  // Parse bearer token for auth
+  // Parse the Authorization header: a legacy keypair token or an OAuth access token.
   const authHeader = event.headers?.["authorization"];
-  let keys: ReturnType<typeof decodeToken> | undefined;
-  const authenticated = !!authHeader?.startsWith("Bearer ");
-  if (authenticated) {
-    try {
-      keys = decodeToken(authHeader!.slice(7));
-    } catch {
-      log("WARN", "Invalid bearer token received");
-    }
+  const cred = parseAuthorization(authHeader);
+  const authenticated = !!cred;
+  if (authHeader?.startsWith("Bearer ") && !cred) {
+    log("WARN", "Invalid bearer token received");
+  }
+
+  // Clients that want the OAuth flow ask for it with ?auth=required (or get
+  // it by default once the flip in the OAuth plan lands). A 401 with
+  // resource metadata is what makes Claude Code, claude.ai and Cursor open
+  // the browser; a 200 with fewer tools never does.
+  const query = new URLSearchParams(event.rawQueryString ?? "");
+  if (!cred && query.get("auth") === "required") {
+    log("INFO", "MCP request", {
+      method,
+      path,
+      host: event.headers?.["host"],
+      clientIp: event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || event.requestContext.http.sourceIp,
+      userAgent: event.requestContext.http.userAgent,
+      rpcMethod: "unknown",
+      rejected: "unauthorized",
+    });
+    return {
+      statusCode: 401,
+      headers: {
+        "content-type": "application/json",
+        "www-authenticate": `Bearer resource_metadata="${RESOURCE_METADATA_URL}"`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32001, message: "Authentication required. Complete the OAuth flow advertised in WWW-Authenticate." },
+        id: null,
+      }),
+    };
   }
 
   // Parse the JSON-RPC body to extract method name for logging
@@ -141,6 +169,7 @@ export async function handler(
     sourceIp: event.requestContext.http.sourceIp,
     userAgent: event.requestContext.http.userAgent,
     authenticated,
+    authKind: cred?.kind,
     rpcMethod,
     tool,
     clientName: client.name,
@@ -151,7 +180,7 @@ export async function handler(
 
   log("INFO", "MCP request", requestContext);
 
-  const server = createMcpServer(keys);
+  const server = createMcpServer(cred);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
