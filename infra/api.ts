@@ -1,5 +1,6 @@
 import { table } from "./database";
 import { vectorConfig } from "./vectors";
+import { oauthSigningKey, oauthIssuer } from "./secrets";
 
 const authorizerFn = new sst.aws.Function("Authorizer", {
   handler: "src/functions/authorizer.handler",
@@ -8,6 +9,8 @@ const authorizerFn = new sst.aws.Function("Authorizer", {
     POWERTOOLS_SERVICE_NAME: "agentbase",
     LOG_LEVEL: "INFO",
     TABLE_NAME: table.name,
+    OAUTH_SIGNING_KEY: oauthSigningKey.value,
+    ...(oauthIssuer ? { OAUTH_ISSUER: oauthIssuer } : {}),
   },
   permissions: [
     {
