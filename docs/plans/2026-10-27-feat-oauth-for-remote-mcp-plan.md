@@ -101,6 +101,15 @@ Three new single-table entities, all with TTL:
 
 ## Rollout
 
+Progress is tracked here as PRs land.
+
+- [x] Authorizer accepts server-issued tokens by `iss`; `OAuthSigningKey`
+      secret and `scripts/oauth-signing-key.mjs` added. Off until the secret
+      is set.
+- [ ] Discovery metadata, `/register`, `/authorize`, `/token` on the MCP Lambda.
+- [ ] GitHub login and account linking.
+- [ ] Flip `/mcp` to 401-by-default and add `/mcp/public`.
+
 1. **Authorization server, dark.** Add the five endpoints, entities, GitHub
    login, authorizer `iss` branch. `/mcp` still accepts anonymous. Test
    with MCP Inspector and Claude Code pointed at a `/mcp?auth=required`

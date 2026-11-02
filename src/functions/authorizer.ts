@@ -3,7 +3,12 @@ import { logger } from "../lib/powertools.js";
 import { UserEntity } from "../lib/entities/user.js";
 import { verifyJwt } from "../lib/auth/keys.js";
 import { checkAndStoreJti } from "../lib/auth/replay.js";
+import { loadServerKeys, isServerIssued, verifyAccessToken } from "../lib/auth/oauth.js";
 import type { JWK } from "jose";
+
+// Undefined until the OAuthSigningKey secret is set; then server-issued
+// access tokens are accepted alongside legacy keypair tokens.
+const serverKeys = loadServerKeys();
 
 export async function handler(
   event: AppSyncAuthorizerEvent,
@@ -23,13 +28,28 @@ export async function handler(
   }
 
   try {
-    // Decode token to get `sub` (fingerprint) without verifying
-    const [headerB64] = token.split(".");
-    const header = JSON.parse(
-      Buffer.from(headerB64, "base64url").toString(),
-    );
+    if (serverKeys && isServerIssued(token, serverKeys.issuer)) {
+      const claims = await verifyAccessToken(token, serverKeys);
+      const { data: user } = await UserEntity.get({ userId: claims.userId }).go();
+      if (!user) {
+        logger.warn("OAuth token for unknown user", { userId: claims.userId });
+        return deny();
+      }
+      logger.info("Auth success", {
+        userId: user.userId,
+        username: user.username,
+        via: "oauth",
+        clientId: claims.clientId,
+      });
+      return {
+        isAuthorized: true,
+        resolverContext: { userId: user.userId, username: user.username },
+        ttlOverride: 0,
+      };
+    }
 
-    // Actually we need sub from payload, not header
+    // Legacy path: a short-lived JWT signed by the agent's own keypair.
+    // Decode the payload to get `sub` (fingerprint) without verifying.
     const [, payloadB64] = token.split(".");
     const unverifiedPayload = JSON.parse(
       Buffer.from(payloadB64, "base64url").toString(),
