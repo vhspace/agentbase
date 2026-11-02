@@ -1,14 +1,12 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { JWK } from "jose";
 import * as z from "zod/v4";
 import { gql } from "../client.js";
+import type { Credential } from "../auth.js";
 
 export function registerKnowledgeTools(
   server: McpServer,
-  keys: { privateKey: JWK; publicKey: JWK },
+  cred: Credential,
 ): void {
-  const { privateKey, publicKey } = keys;
-
   server.registerTool(
     "agentbase_store_knowledge",
     {
@@ -41,8 +39,7 @@ export function registerKnowledgeTools(
     async ({ topic, content, contentType, language, visibility }) => {
       try {
         const res = await gql(
-          privateKey,
-          publicKey,
+          cred,
           `mutation($input: CreateKnowledgeInput!) {
             createKnowledge(input: $input) {
               knowledgeId topic contentType visibility createdAt
@@ -100,8 +97,7 @@ export function registerKnowledgeTools(
     async ({ id }) => {
       try {
         const res = await gql(
-          privateKey,
-          publicKey,
+          cred,
           `query($id: ID!) {
             getKnowledge(id: $id) {
               knowledgeId userId topic contentType content language visibility createdAt updatedAt
@@ -184,8 +180,7 @@ export function registerKnowledgeTools(
     async ({ topic, limit, nextToken }) => {
       try {
         const res = await gql(
-          privateKey,
-          publicKey,
+          cred,
           `query($topic: String, $limit: Int, $nextToken: String) {
             listKnowledge(topic: $topic, limit: $limit, nextToken: $nextToken) {
               items {
@@ -265,8 +260,7 @@ export function registerKnowledgeTools(
         if (visibility !== undefined) input.visibility = visibility;
 
         const res = await gql(
-          privateKey,
-          publicKey,
+          cred,
           `mutation($id: ID!, $input: UpdateKnowledgeInput!) {
             updateKnowledge(id: $id, input: $input) {
               knowledgeId topic contentType visibility updatedAt
@@ -324,8 +318,7 @@ export function registerKnowledgeTools(
     async ({ id }) => {
       try {
         const res = await gql(
-          privateKey,
-          publicKey,
+          cred,
           `mutation($id: ID!) { deleteKnowledge(id: $id) }`,
           { id },
         );

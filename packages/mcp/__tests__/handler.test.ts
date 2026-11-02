@@ -98,3 +98,41 @@ describe("structured logging", () => {
     expect(res).toMatchObject({ tool: "agentbase_setup", toolError: true });
   });
 });
+
+describe("OAuth opt-in", () => {
+  const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } } };
+
+  it("returns 401 with resource metadata when ?auth=required and no token", async () => {
+    const res = await handler(
+      event("POST", {
+        rawQueryString: "auth=required",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(init),
+      }),
+    );
+    expect(res.statusCode).toBe(401);
+    expect(res.headers?.["www-authenticate"]).toBe(
+      'Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"',
+    );
+  });
+
+  it("serves an initialize when ?auth=required and an access token is present", async () => {
+    const jwt = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ1IiwiaXNzIjoiaHR0cHM6Ly9tY3AuYWdlbnRiYXNlLnRvb2xzIn0.c2ln";
+    const res = await handler(
+      event("POST", {
+        rawQueryString: "auth=required",
+        headers: { "content-type": "application/json", authorization: `Bearer ${jwt}` },
+        body: JSON.stringify(init),
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body!).result.serverInfo.name).toBe("agentbase");
+  });
+
+  it("still serves anonymous initialize without the flag", async () => {
+    const res = await handler(
+      event("POST", { headers: { "content-type": "application/json" }, body: JSON.stringify(init) }),
+    );
+    expect(res.statusCode).toBe(200);
+  });
+});

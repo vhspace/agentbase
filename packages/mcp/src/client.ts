@@ -1,5 +1,4 @@
-import { signRequest } from "./auth.js";
-import type { JWK } from "jose";
+import { signRequest, type Credential } from "./auth.js";
 
 interface GraphQLResponse {
   data?: Record<string, unknown>;
@@ -11,18 +10,20 @@ const GRAPHQL_ENDPOINT =
   "https://27ntff3y5jdalifhypsi4qehf4.appsync-api.us-east-1.amazonaws.com/graphql";
 
 export async function gql(
-  privateKey: JWK,
-  publicKey: JWK,
+  cred: Credential,
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<GraphQLResponse> {
-  const token = await signRequest(privateKey, publicKey);
+  const authorization =
+    cred.kind === "bearer"
+      ? `Bearer ${cred.token}`
+      : await signRequest(cred.privateKey, cred.publicKey);
 
   const res = await fetch(GRAPHQL_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: token,
+      Authorization: authorization,
     },
     body: JSON.stringify({ query, variables }),
   });

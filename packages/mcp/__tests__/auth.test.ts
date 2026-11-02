@@ -95,3 +95,28 @@ describe("auth", () => {
     });
   });
 });
+
+describe("parseAuthorization", () => {
+  it("returns undefined without a bearer header", async () => {
+    const { parseAuthorization } = await import("../src/auth.js");
+    expect(parseAuthorization(undefined)).toBeUndefined();
+    expect(parseAuthorization("Basic abc")).toBeUndefined();
+    expect(parseAuthorization("Bearer ")).toBeUndefined();
+    expect(parseAuthorization("Bearer not-a-token")).toBeUndefined();
+  });
+
+  it("recognises a legacy keypair token", async () => {
+    const { parseAuthorization } = await import("../src/auth.js");
+    const { privateKey, publicKey } = await generateKeypair();
+    const cred = parseAuthorization(`Bearer ${encodeToken(privateKey, publicKey)}`);
+    expect(cred?.kind).toBe("keypair");
+    if (cred?.kind === "keypair") expect(cred.publicKey.x).toBe(publicKey.x);
+  });
+
+  it("recognises a JWT as an OAuth access token to pass through", async () => {
+    const { parseAuthorization } = await import("../src/auth.js");
+    const { privateKey, publicKey } = await generateKeypair();
+    const jwt = await signRequest(privateKey, publicKey);
+    expect(parseAuthorization(`Bearer ${jwt}`)).toEqual({ kind: "bearer", token: jwt });
+  });
+});
