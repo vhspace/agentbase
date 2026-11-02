@@ -25,6 +25,7 @@ export default $config({
     const { cdn } = await import("./infra/cdn");
     const { site } = await import("./infra/website");
     const { mcpFn, mcpCdn } = await import("./infra/mcp");
+    const { oauthFn } = await import("./infra/oauth");
     await import("./infra/dashboard");
 
     return {
@@ -33,6 +34,7 @@ export default $config({
       siteUrl: site.url,
       mcpUrl: mcpFn.url,
       mcpCdnUrl: mcpCdn.domainName,
+      oauthUrl: oauthFn.url,
       tableName: table.name,
     };
   },

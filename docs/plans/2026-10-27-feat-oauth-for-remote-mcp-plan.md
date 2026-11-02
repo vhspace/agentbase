@@ -36,8 +36,11 @@ alongside it, not instead of it.
 
 ### Endpoints
 
-All on the existing MCP Lambda behind `mcp.agentbase.tools`, so there is
-one function to deploy and one domain to trust.
+All behind `mcp.agentbase.tools`, so there is one domain to trust. The
+authorization server runs as its own Lambda (`src/functions/oauth.ts`): it
+needs DynamoDB and the entity layer that live in the root package, and the
+MCP Lambda is a separate package without them. CloudFront routes the OAuth
+paths to it and everything else to the MCP server.
 
 | Path | Purpose |
 |---|---|
@@ -106,8 +109,11 @@ Progress is tracked here as PRs land.
 - [x] Authorizer accepts server-issued tokens by `iss`; `OAuthSigningKey`
       secret and `scripts/oauth-signing-key.mjs` added. Off until the secret
       is set.
-- [ ] Discovery metadata, `/register`, `/authorize`, `/token` on the MCP Lambda.
-- [ ] GitHub login and account linking.
+- [x] Discovery metadata, `/register`, `/authorize`, `/callback`, `/token`,
+      GitHub login and account linking, in `src/lib/oauth/server.ts` on a
+      separate `OAuthServer` Lambda. CloudFront routes those paths on
+      `mcp.agentbase.tools` to it. Off until the `GithubOAuthClientId` and
+      `GithubOAuthClientSecret` secrets are set.
 - [ ] Flip `/mcp` to 401-by-default and add `/mcp/public`.
 
 1. **Authorization server, dark.** Add the five endpoints, entities, GitHub
