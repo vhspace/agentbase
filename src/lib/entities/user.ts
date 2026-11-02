@@ -11,8 +11,12 @@ export const UserEntity = new Entity(
     attributes: {
       userId: { type: "string", required: true },
       username: { type: "string", required: true },
-      publicKey: { type: "any", required: true }, // JWK stored as map
-      publicKeyFingerprint: { type: "string", required: true },
+      // Keypair accounts have a public key; accounts created through OAuth
+      // login may not, so both are optional and the fingerprint index is sparse.
+      publicKey: { type: "any" }, // JWK stored as map
+      publicKeyFingerprint: { type: "string" },
+      githubId: { type: "string" },
+      githubLogin: { type: "string" },
       signupIp: { type: "string" },
       signupCountry: { type: "string" },
       signupCity: { type: "string" },

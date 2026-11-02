@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { oauthFn, OAUTH_PATHS } from "./oauth";
 
 export const mcpFn = new sst.aws.Function("McpServer", {
   handler: "packages/mcp/src/handler.handler",
@@ -27,6 +28,7 @@ const ACM_CERT_ARN = "arn:aws:acm:us-east-1:070638634478:certificate/77e38f2d-8d
 const MCP_DOMAIN = "mcp.agentbase.tools";
 
 const mcpOriginHostname = mcpFn.url.apply((url: string) => new URL(url).hostname);
+const oauthOriginHostname = oauthFn.url.apply((url: string) => new URL(url).hostname);
 
 // AWS managed policies
 const cachingDisabledPolicyId = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad";
@@ -45,10 +47,31 @@ export const mcpCdn: aws.cloudfront.Distribution = new aws.cloudfront.Distributi
     originRequestPolicyId: allViewerExceptHostPolicyId,
     compress: true,
   },
+  // OAuth discovery and endpoints live on the same domain but a separate Lambda.
+  orderedCacheBehaviors: OAUTH_PATHS.map((pathPattern) => ({
+    pathPattern,
+    allowedMethods: ["GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"],
+    cachedMethods: ["GET", "HEAD"],
+    targetOriginId: "oauth-lambda",
+    viewerProtocolPolicy: "redirect-to-https",
+    cachePolicyId: cachingDisabledPolicyId,
+    originRequestPolicyId: allViewerExceptHostPolicyId,
+    compress: true,
+  })),
   origins: [
     {
       domainName: mcpOriginHostname,
       originId: "mcp-lambda",
+      customOriginConfig: {
+        httpPort: 80,
+        httpsPort: 443,
+        originProtocolPolicy: "https-only",
+        originSslProtocols: ["TLSv1.2"],
+      },
+    },
+    {
+      domainName: oauthOriginHostname,
+      originId: "oauth-lambda",
       customOriginConfig: {
         httpPort: 80,
         httpsPort: 443,
