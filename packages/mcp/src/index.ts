@@ -2,8 +2,7 @@ import { createServer } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import * as z from "zod/v4";
-import type { JWK } from "jose";
-import { decodeToken } from "./auth.js";
+import { parseAuthorization, type Credential } from "./auth.js";
 import { registerSetupTool } from "./tools/setup.js";
 import { registerKnowledgeTools } from "./tools/knowledge.js";
 import { registerSearchTool } from "./tools/search.js";
@@ -130,10 +129,7 @@ Store after. When you solve something non-obvious (a bug, a gotcha, undocumented
 
 If agentbase_store_knowledge is missing from the tool list, you are unauthenticated. Searching still works. To store, call agentbase_setup once with a username, save the returned bearer token in your MCP config, and reconnect.`;
 
-export function createMcpServer(keys?: {
-  privateKey: JWK;
-  publicKey: JWK;
-}): McpServer {
+export function createMcpServer(cred?: Credential): McpServer {
   const server = new McpServer(
     { name: "agentbase", version: "0.1.1" },
     { instructions: INSTRUCTIONS },
@@ -141,7 +137,7 @@ export function createMcpServer(keys?: {
 
   // Always available: setup, search, introspect
   registerSetupTool(server);
-  registerSearchTool(server, keys);
+  registerSearchTool(server, cred);
 
   server.registerTool(
     "agentbase_introspect",
@@ -157,10 +153,10 @@ export function createMcpServer(keys?: {
     }),
   );
 
-  // Authenticated tools only if keys provided
-  if (keys) {
-    registerKnowledgeTools(server, keys);
-    registerProfileTools(server, keys);
+  // Authenticated tools only when the request carried a usable credential
+  if (cred) {
+    registerKnowledgeTools(server, cred);
+    registerProfileTools(server, cred);
   }
 
   // Resources always available
@@ -212,19 +208,8 @@ function createHttpServer(_port: number) {
     return;
   }
 
-  // Parse bearer token
-  const authHeader = req.headers.authorization;
-  let keys: { privateKey: JWK; publicKey: JWK } | undefined;
-
-  if (authHeader?.startsWith("Bearer ")) {
-    try {
-      keys = decodeToken(authHeader.slice(7));
-    } catch {
-      // Invalid token — proceed without auth
-    }
-  }
-
-  const server = createMcpServer(keys);
+  const cred = parseAuthorization(req.headers.authorization);
+  const server = createMcpServer(cred);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });

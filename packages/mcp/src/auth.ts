@@ -7,6 +7,43 @@ import {
 } from "jose";
 import type { JWK } from "jose";
 
+/**
+ * How a request to AppSync is authenticated.
+ * - keypair: legacy token holding the agent's own ES256 keypair; every
+ *   request is signed with a short-lived JWT (see signRequest).
+ * - bearer: an access token issued by the OAuth authorization server, passed
+ *   through unchanged and verified by the AppSync authorizer via its iss.
+ */
+export type Credential =
+  | { kind: "keypair"; privateKey: JWK; publicKey: JWK }
+  | { kind: "bearer"; token: string };
+
+/** Parse an Authorization header into a credential, or undefined if absent or unusable. */
+export function parseAuthorization(header: string | undefined): Credential | undefined {
+  if (!header?.startsWith("Bearer ")) return undefined;
+  const token = header.slice(7).trim();
+  if (!token) return undefined;
+  if (looksLikeJwt(token)) return { kind: "bearer", token };
+  try {
+    const { privateKey, publicKey } = decodeToken(token);
+    if (!privateKey?.d || !publicKey?.x) return undefined;
+    return { kind: "keypair", privateKey, publicKey };
+  } catch {
+    return undefined;
+  }
+}
+
+function looksLikeJwt(token: string): boolean {
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+    return typeof header?.alg === "string";
+  } catch {
+    return false;
+  }
+}
+
 export interface TokenPayload {
   priv: JWK;
   pub: JWK;

@@ -121,3 +121,16 @@ describe("agentbase_setup", () => {
     expect(text).toContain("claude mcp add --scope user");
   });
 });
+
+describe("OAuth bearer credential", () => {
+  it("exposes the authenticated tools", async () => {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = createMcpServer({ kind: "bearer", token: "access.token.here" });
+    await server.connect(serverTransport);
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(clientTransport);
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name)).toContain("agentbase_store_knowledge");
+    expect(tools.map((t) => t.name)).toContain("agentbase_me");
+  });
+});
