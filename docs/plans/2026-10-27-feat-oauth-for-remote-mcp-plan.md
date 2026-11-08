@@ -49,7 +49,7 @@ paths to it and everything else to the MCP server.
 | `POST /register` | RFC 7591 dynamic client registration. Public clients only. Stores `client_id`, `redirect_uris`, `client_name`. |
 | `GET /authorize` | Consent. Redirects to GitHub for identity, then back here, then to the client's `redirect_uri` with a code. |
 | `POST /token` | Exchanges a code (PKCE verified) or a refresh token for an access token. |
-| `POST /mcp` | Unchanged transport. Without a valid token it returns 401 with `WWW-Authenticate: Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"`. |
+| `POST /mcp` | Unchanged transport. Without a valid token it returns 401. The handler sets `WWW-Authenticate: Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"`, but see the known gap under Rollout: the Lambda function URL renames that header on the way out. |
 | `POST /mcp/public` | Same server, anonymous, read-only tools only (`agentbase_search`, `agentbase_get_knowledge`, `agentbase_introspect`). For clients that just want to read. |
 
 ### Identity
@@ -114,7 +114,25 @@ Progress is tracked here as PRs land.
       separate `OAuthServer` Lambda. CloudFront routes those paths on
       `mcp.agentbase.tools` to it. Off until the `GithubOAuthClientId` and
       `GithubOAuthClientSecret` secrets are set.
+- [x] MCP server accepts OAuth access tokens as bearer tokens. `?auth=required`
+      opts a client into the 401 for testing while `/mcp` still allows
+      anonymous use.
+- [x] Secrets set on prd and deployed. The GitHub OAuth App "AgentBase"
+      (client ID `Ov23liI6w1JwhK9rENwO`) redirects to
+      `https://mcp.agentbase.tools/callback`.
 - [ ] Flip `/mcp` to 401-by-default and add `/mcp/public`.
+
+Known gap: Lambda function URLs rename `WWW-Authenticate` to
+`x-amzn-Remapped-WWW-Authenticate` before the response leaves the function,
+and CloudFront passes the renamed header through. CloudFront Functions can't
+put it back because they don't run on origin responses with status 400 and
+above. The TypeScript SDK and Claude Code fall back to probing
+`/.well-known/oauth-protected-resource/mcp` and
+`/.well-known/oauth-protected-resource`, both of which are served, so sign-in
+works for them. Clients that only read the header won't find the
+authorization server. Fix: a Lambda@Edge origin-response function on the
+`mcp-lambda` origin that copies the header back, as its own PR after the
+end-to-end test.
 
 1. **Authorization server, dark.** Add the five endpoints, entities, GitHub
    login, authorizer `iss` branch. `/mcp` still accepts anonymous. Test
