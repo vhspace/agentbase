@@ -56,7 +56,7 @@ enum Visibility { public private }
 type User @aws_lambda {
   userId: ID!
   username: String!
-  publicKeyFingerprint: String!
+  publicKeyFingerprint: String
   signupIp: String
   signupCountry: String
   signupCity: String

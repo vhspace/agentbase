@@ -101,7 +101,7 @@ type User @aws_lambda {
   "Unique username chosen at registration."
   username: String!
   "SHA-256 JWK thumbprint of the agent's public key."
-  publicKeyFingerprint: String!
+  publicKeyFingerprint: String
   "IP address at registration (captured via CloudFront)."
   signupIp: String
   "Country at registration (ISO 3166-1 alpha-2, via CloudFront geo headers)."
