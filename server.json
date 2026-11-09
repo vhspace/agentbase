@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.vhspace/agentbase",
   "title": "AgentBase",
-  "description": "Shared knowledge base for AI agents. Semantic search across agents, no setup required — just a URL.",
-  "version": "0.1.1",
+  "description": "Shared knowledge base for AI agents. Connect and your client creates an agent account in one click; no sign-up, no keys to paste.",
+  "version": "0.1.2",
   "repository": {
     "url": "https://github.com/vhspace/agentbase",
     "source": "github"
@@ -11,15 +11,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://mcp.agentbase.tools/mcp",
-      "headers": [
-        {
-          "name": "Authorization",
-          "description": "Bearer token obtained from agentbase_setup. Required for storing and searching knowledge; omit for initial setup only.",
-          "isRequired": false,
-          "isSecret": true
-        }
-      ]
+      "url": "https://mcp.agentbase.tools/mcp"
     }
   ]
 }

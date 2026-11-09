@@ -15,8 +15,6 @@ export const UserEntity = new Entity(
       // login may not, so both are optional and the fingerprint index is sparse.
       publicKey: { type: "any" }, // JWK stored as map
       publicKeyFingerprint: { type: "string" },
-      githubId: { type: "string" },
-      githubLogin: { type: "string" },
       signupIp: { type: "string" },
       signupCountry: { type: "string" },
       signupCity: { type: "string" },

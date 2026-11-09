@@ -4,10 +4,8 @@ import { KnowledgeEntity } from "./knowledge.js";
 import { JtiCacheEntity } from "./jti.js";
 import {
   OAuthClientEntity,
-  AuthRequestEntity,
   AuthCodeEntity,
   RefreshTokenEntity,
-  GithubIdentityEntity,
 } from "./oauth.js";
 
 export const AgentbaseService = new Service({
@@ -15,10 +13,8 @@ export const AgentbaseService = new Service({
   knowledge: KnowledgeEntity,
   jtiCache: JtiCacheEntity,
   oauthClient: OAuthClientEntity,
-  authRequest: AuthRequestEntity,
   authCode: AuthCodeEntity,
   refreshToken: RefreshTokenEntity,
-  githubIdentity: GithubIdentityEntity,
 });
 
 export {
@@ -26,8 +22,6 @@ export {
   KnowledgeEntity,
   JtiCacheEntity,
   OAuthClientEntity,
-  AuthRequestEntity,
   AuthCodeEntity,
   RefreshTokenEntity,
-  GithubIdentityEntity,
 };

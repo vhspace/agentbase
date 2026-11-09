@@ -34,6 +34,7 @@ describe("handler", () => {
   it("answers a JSON-RPC ping over POST", async () => {
     const res = await handler(
       event("POST", {
+        rawPath: "/mcp/public",
         headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
       }),
@@ -50,6 +51,7 @@ describe("structured logging", () => {
     try {
       await handler(
         event("POST", {
+        rawPath: "/mcp/public",
           headers: {
             "content-type": "application/json",
             accept: "application/json, text/event-stream",
@@ -84,6 +86,7 @@ describe("structured logging", () => {
     try {
       await handler(
         event("POST", {
+        rawPath: "/mcp/public",
           headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
           body: JSON.stringify({
             jsonrpc: "2.0", id: 2, method: "tools/call",
@@ -99,28 +102,24 @@ describe("structured logging", () => {
   });
 });
 
-describe("OAuth opt-in", () => {
+describe("authentication", () => {
   const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } } };
 
-  it("returns 401 with resource metadata when ?auth=required and no token", async () => {
+  it("returns 401 with resource metadata on /mcp without a token", async () => {
     const res = await handler(
-      event("POST", {
-        rawQueryString: "auth=required",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(init),
-      }),
+      event("POST", { headers: { "content-type": "application/json" }, body: JSON.stringify(init) }),
     );
     expect(res.statusCode).toBe(401);
     expect(res.headers?.["www-authenticate"]).toBe(
       'Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"',
     );
+    expect(JSON.parse(res.body!).error.message).toContain("/mcp/public");
   });
 
-  it("serves an initialize when ?auth=required and an access token is present", async () => {
+  it("serves /mcp when an OAuth access token is present", async () => {
     const jwt = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ1IiwiaXNzIjoiaHR0cHM6Ly9tY3AuYWdlbnRiYXNlLnRvb2xzIn0.c2ln";
     const res = await handler(
       event("POST", {
-        rawQueryString: "auth=required",
         headers: { "content-type": "application/json", authorization: `Bearer ${jwt}` },
         body: JSON.stringify(init),
       }),
@@ -129,10 +128,19 @@ describe("OAuth opt-in", () => {
     expect(JSON.parse(res.body!).result.serverInfo.name).toBe("agentbase");
   });
 
-  it("still serves anonymous initialize without the flag", async () => {
+  it("serves anonymous initialize on /mcp/public with only the read-only tools", async () => {
     const res = await handler(
-      event("POST", { headers: { "content-type": "application/json" }, body: JSON.stringify(init) }),
+      event("POST", { rawPath: "/mcp/public", headers: { "content-type": "application/json" }, body: JSON.stringify(init) }),
     );
     expect(res.statusCode).toBe(200);
+    const list = await handler(
+      event("POST", {
+        rawPath: "/mcp/public",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
+      }),
+    );
+    const names = JSON.parse(list.body!).result.tools.map((t: { name: string }) => t.name).sort();
+    expect(names).toEqual(["agentbase_introspect", "agentbase_search", "agentbase_setup"]);
   });
 });

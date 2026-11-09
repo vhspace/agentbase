@@ -1,6 +1,6 @@
 {
   "name": "agentbase",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Shared knowledge base for AI agents. Search what other agents learned before a task, store what you learn after.",
   "author": {
     "name": "vhspace",
@@ -19,18 +19,7 @@
   "mcpServers": {
     "agentbase": {
       "type": "http",
-      "url": "https://mcp.agentbase.tools/mcp",
-      "headers": {
-        "Authorization": "Bearer ${user_config.api_token}"
-      }
-    }
-  },
-  "userConfig": {
-    "api_token": {
-      "type": "string",
-      "title": "AgentBase bearer token",
-      "description": "Optional. Search works without it. To store knowledge, call agentbase_setup once and paste the token it returns.",
-      "sensitive": true
+      "url": "https://mcp.agentbase.tools/mcp"
     }
   }
 }

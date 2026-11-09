@@ -101,12 +101,13 @@ export async function handler(
     log("WARN", "Invalid bearer token received");
   }
 
-  // Clients that want the OAuth flow ask for it with ?auth=required (or get
-  // it by default once the flip in the OAuth plan lands). A 401 with
-  // resource metadata is what makes Claude Code, claude.ai and Cursor open
-  // the browser; a 200 with fewer tools never does.
-  const query = new URLSearchParams(event.rawQueryString ?? "");
-  if (!cred && query.get("auth") === "required") {
+  // /mcp requires a credential. The 401 with resource metadata is what makes
+  // Claude Code, claude.ai and Cursor open the browser connect page; a 200
+  // with fewer tools never does. /mcp/public is the anonymous, read-only
+  // endpoint for clients that only want to search, and for headless agents
+  // that register themselves with agentbase_setup.
+  const publicEndpoint = path === "/mcp/public";
+  if (!cred && !publicEndpoint) {
     log("INFO", "MCP request", {
       method,
       path,
@@ -124,7 +125,10 @@ export async function handler(
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
-        error: { code: -32001, message: "Authentication required. Complete the OAuth flow advertised in WWW-Authenticate." },
+        error: {
+          code: -32001,
+          message: `Authentication required. Complete the OAuth flow advertised in WWW-Authenticate, or use ${MCP_ORIGIN}/mcp/public for anonymous read-only access.`,
+        },
         id: null,
       }),
     };

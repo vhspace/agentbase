@@ -2,13 +2,7 @@ import { importJWK, SignJWT } from "jose";
 import { ulid } from "ulidx";
 import { logger } from "../powertools.js";
 import { UserEntity } from "../entities/user.js";
-import {
-  OAuthClientEntity,
-  AuthRequestEntity,
-  AuthCodeEntity,
-  RefreshTokenEntity,
-  GithubIdentityEntity,
-} from "../entities/oauth.js";
+import { OAuthClientEntity, AuthCodeEntity, RefreshTokenEntity } from "../entities/oauth.js";
 import { loadServerKeys, ACCESS_TOKEN_TTL_SECONDS, type ServerKeys } from "../auth/oauth.js";
 import { randomToken, sha256hex, pkceMatches } from "./crypto.js";
 
@@ -17,27 +11,22 @@ import { randomToken, sha256hex, pkceMatches } from "./crypto.js";
  *
  * Discovery (RFC 8414 / 9728), dynamic client registration (RFC 7591),
  * authorization code with mandatory PKCE S256, refresh token rotation.
- * GitHub is the identity provider: /authorize shows a consent page, then
- * sends the user to GitHub; /callback maps the GitHub account to an
- * AgentBase user and issues a code. Tokens are ES256 JWTs the AppSync
- * authorizer verifies by `iss` (see src/lib/auth/oauth.ts).
+ * There is no identity provider: /authorize shows a page that names the
+ * client, and submitting it creates a fresh agent account and issues a
+ * code for it. Agents are the users here; nobody has to log in anywhere.
+ * Tokens are ES256 JWTs the AppSync authorizer verifies by `iss`
+ * (see src/lib/auth/oauth.ts).
  */
 
 export interface OAuthConfig {
   issuer: string;
   keys: ServerKeys;
-  githubClientId: string;
-  githubClientSecret: string;
 }
 
 export function loadOAuthConfig(env: NodeJS.ProcessEnv = process.env): OAuthConfig | undefined {
   const keys = loadServerKeys(env);
-  const githubClientId = env.GITHUB_OAUTH_CLIENT_ID;
-  const githubClientSecret = env.GITHUB_OAUTH_CLIENT_SECRET;
-  if (!keys || !githubClientId || githubClientId === "unset" || !githubClientSecret || githubClientSecret === "unset") {
-    return undefined;
-  }
-  return { issuer: keys.issuer, keys, githubClientId, githubClientSecret };
+  if (!keys) return undefined;
+  return { issuer: keys.issuer, keys };
 }
 
 export interface HttpRequest {
@@ -55,7 +44,6 @@ export interface HttpResponse {
 }
 
 const CLIENT_TTL_SECONDS = 90 * 24 * 60 * 60;
-const AUTH_REQUEST_TTL_SECONDS = 10 * 60;
 const CODE_TTL_SECONDS = 10 * 60;
 const REFRESH_TTL_SECONDS = 90 * 24 * 60 * 60;
 const SCOPES = ["knowledge"];
@@ -137,10 +125,7 @@ function parseForm(body: string): URLSearchParams {
 }
 
 export class OAuthServer {
-  constructor(
-    private readonly config: OAuthConfig,
-    private readonly fetchImpl: typeof fetch = fetch,
-  ) {}
+  constructor(private readonly config: OAuthConfig) {}
 
   async handle(req: HttpRequest): Promise<HttpResponse> {
     const { method, path } = req;
@@ -152,7 +137,6 @@ export class OAuthServer {
     if (method === "POST" && path === "/register") return this.register(req);
     if (method === "GET" && path === "/authorize") return this.authorizeGet(req);
     if (method === "POST" && path === "/authorize") return this.authorizePost(req);
-    if (method === "GET" && path === "/callback") return this.callback(req);
     if (method === "POST" && path === "/token") return this.token(req);
     return json(404, { error: "not_found" });
   }
@@ -297,130 +281,70 @@ export class OAuthServer {
       200,
       page(
         "Connect to AgentBase",
-        `<p><strong>${who}</strong> <span class="muted">(${host})</span> wants to search and store knowledge as you on AgentBase.</p>
-<p>Sign in with GitHub to continue. Your GitHub login becomes your AgentBase username the first time.</p>
-<form method="post" action="/authorize">${hidden}<button type="submit">Continue with GitHub</button></form>`,
+        `<p><strong>${who}</strong> <span class="muted">(${host})</span> wants to search and store knowledge on AgentBase.</p>
+<p>Connecting creates an agent account for it. No sign-in, no email. You can pick a name or leave it blank for a generated one.</p>
+<form method="post" action="/authorize">${hidden}
+<label for="username" class="muted">Agent name (optional)</label>
+<input id="username" name="username" type="text" maxlength="32" pattern="[a-z0-9][a-z0-9-]{1,30}[a-z0-9]" placeholder="e.g. my-laptop-agent" autocomplete="off">
+<button type="submit">Connect</button></form>`,
       ),
     );
   }
 
+  /** Create a fresh agent account for this client and send a code back to it. */
   async authorizePost(req: HttpRequest): Promise<HttpResponse> {
     const q = parseForm(req.body);
     const v = await this.validateAuthorize(q);
     if (!v.ok) return v.response;
-    const upstreamState = randomToken(24);
-    await AuthRequestEntity.create({
-      upstreamState,
-      clientId: v.client.clientId,
-      redirectUri: v.redirectUri,
-      codeChallenge: q.get("code_challenge")!,
-      clientState: q.get("state") ?? undefined,
-      scope: q.get("scope") ?? undefined,
-      resource: q.get("resource") ?? undefined,
-      createdAt: new Date().toISOString(),
-      ttl: nowSeconds() + AUTH_REQUEST_TTL_SECONDS,
-    }).go();
-    const gh = new URL("https://github.com/login/oauth/authorize");
-    gh.searchParams.set("client_id", this.config.githubClientId);
-    gh.searchParams.set("redirect_uri", `${this.config.issuer}/callback`);
-    gh.searchParams.set("state", upstreamState);
-    gh.searchParams.set("scope", "read:user");
-    gh.searchParams.set("allow_signup", "true");
-    return redirect(gh.toString());
-  }
 
-  async callback(req: HttpRequest): Promise<HttpResponse> {
-    const state = req.query.get("state");
-    const code = req.query.get("code");
-    if (!state) return html(400, page("Bad request", "<p>Missing state.</p>"));
-    const { data: pending } = await AuthRequestEntity.get({ upstreamState: state }).go();
-    if (!pending || pending.ttl < nowSeconds()) {
-      return html(400, page("Expired", "<p>This sign-in link expired. Start again from your MCP client.</p>"));
+    const requested = (q.get("username") ?? "").trim().toLowerCase();
+    if (requested && !USERNAME_RE.test(requested)) {
+      return html(400, page("Bad name", "<p>Names are 3-32 characters: lowercase letters, digits and hyphens, not starting or ending with a hyphen. Go back and try another.</p>"));
     }
-    await AuthRequestEntity.delete({ upstreamState: state }).go();
-    const back = new URL(pending.redirectUri);
-    if (pending.clientState) back.searchParams.set("state", pending.clientState);
+    const userId = await this.createAgentUser(requested || undefined, req.headers);
 
-    const ghError = req.query.get("error");
-    if (ghError || !code) {
-      back.searchParams.set("error", "access_denied");
-      back.searchParams.set("error_description", req.query.get("error_description") ?? "GitHub sign-in was cancelled");
-      return redirect(back.toString());
-    }
-
-    let identity: { id: string; login: string };
-    try {
-      identity = await this.githubIdentity(code);
-    } catch (err) {
-      logger.error("GitHub exchange failed", { error: err });
-      back.searchParams.set("error", "server_error");
-      back.searchParams.set("error_description", "GitHub sign-in failed");
-      return redirect(back.toString());
-    }
-
-    const userId = await this.userForGithub(identity);
     const authCode = randomToken(32);
     await AuthCodeEntity.create({
       codeHash: sha256hex(authCode),
-      clientId: pending.clientId,
-      redirectUri: pending.redirectUri,
-      codeChallenge: pending.codeChallenge,
+      clientId: v.client.clientId,
+      redirectUri: v.redirectUri,
+      codeChallenge: q.get("code_challenge")!,
       userId,
-      scope: pending.scope,
+      scope: q.get("scope") ?? undefined,
       createdAt: new Date().toISOString(),
       ttl: nowSeconds() + CODE_TTL_SECONDS,
     }).go();
-    logger.info("OAuth code issued", { clientId: pending.clientId, userId });
+    logger.info("OAuth code issued", { clientId: v.client.clientId, userId });
+
+    const back = new URL(v.redirectUri);
+    const state = q.get("state");
+    if (state) back.searchParams.set("state", state);
     back.searchParams.set("code", authCode);
     return redirect(back.toString());
   }
 
-  private async githubIdentity(code: string): Promise<{ id: string; login: string }> {
-    const tokenRes = await this.fetchImpl("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: { accept: "application/json", "content-type": "application/json" },
-      body: JSON.stringify({
-        client_id: this.config.githubClientId,
-        client_secret: this.config.githubClientSecret,
-        code,
-        redirect_uri: `${this.config.issuer}/callback`,
-      }),
-    });
-    const tokenBody = (await tokenRes.json()) as { access_token?: string; error?: string };
-    if (!tokenRes.ok || !tokenBody.access_token) {
-      throw new Error(`GitHub token exchange failed: ${tokenBody.error ?? tokenRes.status}`);
-    }
-    const userRes = await this.fetchImpl("https://api.github.com/user", {
-      headers: { authorization: `Bearer ${tokenBody.access_token}`, accept: "application/vnd.github+json", "user-agent": "agentbase-oauth" },
-    });
-    if (!userRes.ok) throw new Error(`GitHub user lookup failed: ${userRes.status}`);
-    const user = (await userRes.json()) as { id: number; login: string };
-    return { id: String(user.id), login: user.login };
-  }
-
-  /** Find the AgentBase user linked to this GitHub account, creating one on first login. */
-  private async userForGithub(gh: { id: string; login: string }): Promise<string> {
-    const { data: link } = await GithubIdentityEntity.get({ githubId: gh.id }).go();
-    if (link) return link.userId;
-
-    let username = gh.login.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "");
-    if (!USERNAME_RE.test(username)) username = `gh-${gh.id}`;
+  /** New agent account. Generated names look like agent-7f3k2m9q; a requested name that is taken gets a suffix. */
+  private async createAgentUser(requested: string | undefined, headers: Record<string, string | undefined>): Promise<string> {
+    let username = requested ?? `agent-${randomToken(6).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8)}`;
+    if (!USERNAME_RE.test(username)) username = `agent-${ulid().slice(-8).toLowerCase()}`;
     const { data: taken } = await UserEntity.query.byUsername({ username }).go();
-    if (taken.length > 0) username = `${username}-${gh.id}`.slice(0, 32);
+    if (taken.length > 0) username = `${username}-${ulid().slice(-4).toLowerCase()}`.slice(0, 32);
 
     const now = new Date().toISOString();
     const userId = ulid();
     await UserEntity.create({
       userId,
       username,
-      githubId: gh.id,
-      githubLogin: gh.login,
+      signupIp: headers["x-forwarded-for"]?.split(",")[0]?.trim(),
+      signupCountry: headers["cloudfront-viewer-country"],
+      signupCity: headers["cloudfront-viewer-city"],
+      signupRegion: headers["cloudfront-viewer-country-region"],
+      signupUserAgent: headers["user-agent"],
       signupDate: now,
       createdAt: now,
       updatedAt: now,
     }).go();
-    await GithubIdentityEntity.create({ githubId: gh.id, githubLogin: gh.login, userId, createdAt: now }).go();
-    logger.info("User created via GitHub login", { userId, username, githubLogin: gh.login });
+    logger.info("User created via OAuth connect", { userId, username, requested: Boolean(requested) });
     return userId;
   }
 
@@ -503,6 +427,8 @@ function page(title: string, body: string): string {
 body{font:16px/1.5 system-ui,sans-serif;background:#0f1115;color:#e6e6e6;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}
 main{max-width:420px;width:100%;background:#181b22;border:1px solid #2a2f3a;border-radius:12px;padding:28px}
 h1{font-size:20px;margin:0 0 12px}p{margin:0 0 12px}.muted{color:#8b93a7}
+label{display:block;font-size:14px;margin:12px 0 4px}
+input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #2a2f3a;border-radius:8px;background:#0f1115;color:#e6e6e6;font-size:16px;margin-bottom:12px}
 button{width:100%;padding:12px;border:0;border-radius:8px;background:#f0f3f9;color:#0f1115;font-weight:600;font-size:16px;cursor:pointer}
 </style></head><body><main><h1>${esc(title)}</h1>${body}</main></body></html>`;
 }

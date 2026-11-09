@@ -20,19 +20,15 @@ function memEntity(pk: string) {
   };
 }
 const clients = memEntity("clientId");
-const authRequests = memEntity("upstreamState");
 const codes = memEntity("codeHash");
 const refreshTokens = memEntity("tokenHash");
-const githubIds = memEntity("githubId");
 const users = memEntity("userId");
 const usersByName = vi.fn(async (_: { username: string }) => ({ data: [] as unknown[] }));
 
 vi.mock("../../entities/oauth.js", () => ({
   OAuthClientEntity: clients,
-  AuthRequestEntity: authRequests,
   AuthCodeEntity: codes,
   RefreshTokenEntity: refreshTokens,
-  GithubIdentityEntity: githubIds,
 }));
 vi.mock("../../entities/user.js", () => ({
   UserEntity: { ...users, query: { byUsername: (p: { username: string }) => ({ go: () => usersByName(p) }) } },
@@ -50,12 +46,9 @@ jwk.kid = "k1";
 const env = {
   OAUTH_SIGNING_KEY: JSON.stringify(jwk),
   OAUTH_ISSUER: ISS,
-  GITHUB_OAUTH_CLIENT_ID: "gh-client",
-  GITHUB_OAUTH_CLIENT_SECRET: "gh-secret",
 };
 
-const fetchMock = vi.fn();
-const server = new OAuthServer(loadOAuthConfig(env)!, fetchMock as unknown as typeof fetch);
+const server = new OAuthServer(loadOAuthConfig(env)!);
 
 const req = (method: string, path: string, opts: { query?: Record<string, string>; body?: string; headers?: Record<string, string> } = {}) => ({
   method,
@@ -80,33 +73,24 @@ async function registerClient() {
   return JSON.parse(res.body) as { client_id: string };
 }
 
-/** Walk authorize → GitHub → callback and return the code the client receives. */
-async function obtainCode(clientId: string, redirectUri = "http://localhost:3456/callback") {
-  const consent = await server.handle(
-    req("GET", "/authorize", {
-      query: { client_id: clientId, redirect_uri: redirectUri, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "cs1", scope: "knowledge" },
-    }),
-  );
+const AUTHZ = (clientId: string, redirectUri: string) => ({
+  client_id: clientId, redirect_uri: redirectUri, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "cs1", scope: "knowledge",
+});
+
+/** Walk GET /authorize → POST /authorize and return the code the client receives. */
+async function obtainCode(clientId: string, redirectUri = "http://localhost:3456/callback", username?: string) {
+  const consent = await server.handle(req("GET", "/authorize", { query: AUTHZ(clientId, redirectUri) }));
   expect(consent.status).toBe(200);
   expect(consent.body).toContain("Claude Code");
   expect(consent.body).toContain('name="code_challenge"');
+  expect(consent.body).toContain('name="username"');
 
-  const toGithub = await server.handle(
+  const back = await server.handle(
     req("POST", "/authorize", {
-      body: form({ client_id: clientId, redirect_uri: redirectUri, response_type: "code", code_challenge: challenge, code_challenge_method: "S256", state: "cs1", scope: "knowledge" }),
+      body: form({ ...AUTHZ(clientId, redirectUri), ...(username ? { username } : {}) }),
+      headers: { "x-forwarded-for": "198.51.100.7, 10.0.0.1", "user-agent": "claude-code/2.1", "cloudfront-viewer-country": "DE" },
     }),
   );
-  expect(toGithub.status).toBe(302);
-  const gh = new URL(toGithub.headers.location);
-  expect(gh.origin + gh.pathname).toBe("https://github.com/login/oauth/authorize");
-  expect(gh.searchParams.get("redirect_uri")).toBe(`${ISS}/callback`);
-  const upstreamState = gh.searchParams.get("state")!;
-
-  fetchMock.mockReset();
-  fetchMock
-    .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "gh-token" }), { status: 200 }))
-    .mockResolvedValueOnce(new Response(JSON.stringify({ id: 4242, login: "Mischa" }), { status: 200 }));
-  const back = await server.handle(req("GET", "/callback", { query: { code: "gh-code", state: upstreamState } }));
   expect(back.status).toBe(302);
   const loc = new URL(back.headers.location);
   expect(loc.origin + loc.pathname).toBe(redirectUri);
@@ -115,7 +99,7 @@ async function obtainCode(clientId: string, redirectUri = "http://localhost:3456
 }
 
 beforeEach(() => {
-  for (const e of [clients, authRequests, codes, refreshTokens, githubIds, users]) e.rows.clear();
+  for (const e of [clients, codes, refreshTokens, users]) e.rows.clear();
   usersByName.mockReset();
   usersByName.mockResolvedValue({ data: [] });
 });
@@ -140,9 +124,9 @@ describe("discovery", () => {
     expect(jwks.keys[0].d).toBeUndefined();
   });
 
-  it("is disabled when GitHub credentials are unset", () => {
-    expect(loadOAuthConfig({ ...env, GITHUB_OAUTH_CLIENT_ID: "unset" })).toBeUndefined();
-    expect(loadOAuthConfig({ ...env, GITHUB_OAUTH_CLIENT_SECRET: undefined })).toBeUndefined();
+  it("is disabled when the signing key is unset", () => {
+    expect(loadOAuthConfig({ ...env, OAUTH_SIGNING_KEY: "unset" })).toBeUndefined();
+    expect(loadOAuthConfig({ ...env, OAUTH_SIGNING_KEY: undefined })).toBeUndefined();
   });
 });
 
@@ -199,23 +183,41 @@ describe("authorization", () => {
     expect(code).toBeTruthy();
   });
 
-  it("creates a user from the GitHub login on first sign-in and reuses it after", async () => {
+  it("creates a fresh agent account on connect, with a generated name and signup metadata", async () => {
     const { client_id } = await registerClient();
     await obtainCode(client_id);
     expect(users.rows.size).toBe(1);
     const user = [...users.rows.values()][0];
-    expect(user.username).toBe("mischa");
-    expect(user.githubId).toBe("4242");
+    expect(user.username).toMatch(/^agent-[a-z0-9]{6,8}$/);
     expect(user.publicKey).toBeUndefined();
-    expect(githubIds.rows.get("4242")?.userId).toBe(user.userId);
+    expect(user.signupIp).toBe("198.51.100.7");
+    expect(user.signupCountry).toBe("DE");
+    expect(user.signupUserAgent).toBe("claude-code/2.1");
 
     await obtainCode(client_id);
-    expect(users.rows.size).toBe(1);
+    expect(users.rows.size).toBe(2);
   });
 
-  it("rejects an unknown or reused upstream state", async () => {
+  it("uses a requested name, suffixing it when taken, and rejects a malformed one", async () => {
+    const { client_id } = await registerClient();
+    await obtainCode(client_id, undefined, "My-Laptop");
+    expect([...users.rows.values()][0].username).toBe("my-laptop");
+
+    usersByName.mockResolvedValueOnce({ data: [{ userId: "someone" }] });
+    await obtainCode(client_id, undefined, "my-laptop");
+    const names = [...users.rows.values()].map((u) => u.username as string);
+    expect(names.filter((n) => n.startsWith("my-laptop-"))).toHaveLength(1);
+
+    const bad = await server.handle(
+      req("POST", "/authorize", { body: form({ ...AUTHZ(client_id, "http://localhost:3456/callback"), username: "-nope-" }) }),
+    );
+    expect(bad.status).toBe(400);
+    expect(users.rows.size).toBe(2);
+  });
+
+  it("has no GitHub callback route", async () => {
     const res = await server.handle(req("GET", "/callback", { query: { code: "x", state: "nope" } }));
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
   });
 });
 

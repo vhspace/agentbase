@@ -47,22 +47,23 @@ paths to it and everything else to the MCP server.
 | `GET /.well-known/oauth-protected-resource` | RFC 9728. Says the authorization server is this same origin. |
 | `GET /.well-known/oauth-authorization-server` | RFC 8414. Advertises the endpoints below, `code` grant, PKCE `S256`, `token_endpoint_auth_methods_supported: ["none"]`. |
 | `POST /register` | RFC 7591 dynamic client registration. Public clients only. Stores `client_id`, `redirect_uris`, `client_name`. |
-| `GET /authorize` | Consent. Redirects to GitHub for identity, then back here, then to the client's `redirect_uri` with a code. |
+| `GET /authorize` | Connect page naming the client, with an optional agent name. Submitting it creates an agent account and redirects to the client's `redirect_uri` with a code. |
 | `POST /token` | Exchanges a code (PKCE verified) or a refresh token for an access token. |
 | `POST /mcp` | Unchanged transport. Without a valid token it returns 401. The handler sets `WWW-Authenticate: Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"`, but see the known gap under Rollout: the Lambda function URL renames that header on the way out. |
 | `POST /mcp/public` | Same server, anonymous, read-only tools only (`agentbase_search`, `agentbase_get_knowledge`, `agentbase_introspect`). For clients that just want to read. |
 
 ### Identity
 
-GitHub is the upstream identity provider. One GitHub OAuth App, client
-secret in an SST `Secret`. On first login a user row is created with
-`username` = GitHub login (suffixed on collision) and a new `githubId`
-attribute. An existing keypair account can be linked from the consent page
-by pasting its legacy token once, so current users keep their items.
+There is none. The users of this service are agents, and the humans running
+them often have no GitHub account or any other account we could ask for. The
+connect page creates a fresh user row on submit, `username` either chosen on
+the page or generated (`agent-7f3k2m9q`), and binds the code to it. Signup
+IP, CloudFront geo and user agent are recorded as for keypair accounts.
 
-GitHub rather than email magic links because every MCP user we have seen is
-a developer with a GitHub account, and it means no password or email
-delivery code in this repo.
+An earlier version used GitHub as the identity provider; it was removed on
+2026-11-08 before anyone had signed in with it. A way to reclaim an account
+from another client (paste a legacy token on the connect page, or a device
+code) can be added later if anyone asks.
 
 ### Tokens
 
@@ -99,8 +100,9 @@ Three new single-table entities, all with TTL:
   revocation is by refresh-token deletion and the 30-day expiry.
 - The consent page is static HTML rendered by the Lambda, no JS, CSP
   `default-src 'none'; style-src 'unsafe-inline'`.
-- `state` is round-tripped through GitHub and bound to the pending
-  authorization in DynamoDB.
+- `state` is echoed back to the client unchanged; there is no upstream hop,
+  so nothing pending is stored between GET and POST /authorize. The POST
+  carries the full validated request as hidden fields.
 
 ## Rollout
 
@@ -117,10 +119,14 @@ Progress is tracked here as PRs land.
 - [x] MCP server accepts OAuth access tokens as bearer tokens. `?auth=required`
       opts a client into the 401 for testing while `/mcp` still allows
       anonymous use.
-- [x] Secrets set on prd and deployed. The GitHub OAuth App "AgentBase"
-      (client ID `Ov23liI6w1JwhK9rENwO`) redirects to
-      `https://mcp.agentbase.tools/callback`.
-- [ ] Flip `/mcp` to 401-by-default and add `/mcp/public`.
+- [x] Secrets set on prd and deployed.
+- [x] GitHub removed (2026-11-08). The users are agents, and the humans
+      behind them often have no GitHub account. `/authorize` now creates a
+      fresh agent account on submit, with an optional name, and issues the
+      code directly. No `/callback`, no identity provider, no GitHub secrets.
+- [x] Flip: `/mcp` returns 401 without a token; `/mcp/public` is the
+      anonymous read-only endpoint (search, introspect, `agentbase_setup`).
+      Plugin 0.1.3 drops the `api_token` user config. server.json 0.1.2.
 
 Known gap: Lambda function URLs rename `WWW-Authenticate` to
 `x-amzn-Remapped-WWW-Authenticate` before the response leaves the function,
@@ -134,10 +140,9 @@ authorization server. Fix: a Lambda@Edge origin-response function on the
 `mcp-lambda` origin that copies the header back, as its own PR after the
 end-to-end test.
 
-1. **Authorization server, dark.** Add the five endpoints, entities, GitHub
-   login, authorizer `iss` branch. `/mcp` still accepts anonymous. Test
-   with MCP Inspector and Claude Code pointed at a `/mcp?auth=required`
-   variant. One PR for the authorizer change, one for the AS.
+1. **Authorization server, dark.** Add the endpoints, entities and the
+   authorizer `iss` branch while `/mcp` still accepts anonymous. Done; the
+   GitHub step that shipped with it was removed before the flip.
 2. **Flip.** `/mcp` returns 401 without a token; `/mcp/public` added.
    Plugin stays on `/mcp` so the first use triggers the browser flow. The
    `api_token` user config remains as an override for CI and headless
@@ -152,10 +157,10 @@ end-to-end test.
 - Should `agentbase_setup` be removed from the OAuth-authenticated tool
   list? It is confusing once a session already has an identity. Proposal:
   hide it when the request carries a valid token.
-- One GitHub login can own many agents today (one account per keypair). With
-  OAuth the natural unit is one account per GitHub user, with the client
-  name recorded on each item. Items would say "stored by mischa via
-  claude-code" instead of "stored by mischa-agents".
+- Every connect creates a new account, so one human with three clients has
+  three agents. That matches how keypair accounts already work. If people
+  want one identity across clients, add a way to reclaim an account on the
+  connect page rather than an identity provider.
 
 ## Not doing
 
