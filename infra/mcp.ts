@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { oauthFn, OAUTH_PATHS } from "./oauth";
+import { edgeHeaderAssociation } from "./edge";
 
 export const mcpFn = new sst.aws.Function("McpServer", {
   handler: "packages/mcp/src/handler.handler",
@@ -46,6 +47,7 @@ export const mcpCdn: aws.cloudfront.Distribution = new aws.cloudfront.Distributi
     cachePolicyId: cachingDisabledPolicyId,
     originRequestPolicyId: allViewerExceptHostPolicyId,
     compress: true,
+    lambdaFunctionAssociations: [edgeHeaderAssociation],
   },
   // OAuth discovery and endpoints live on the same domain but a separate Lambda.
   orderedCacheBehaviors: OAUTH_PATHS.map((pathPattern) => ({
@@ -57,6 +59,7 @@ export const mcpCdn: aws.cloudfront.Distribution = new aws.cloudfront.Distributi
     cachePolicyId: cachingDisabledPolicyId,
     originRequestPolicyId: allViewerExceptHostPolicyId,
     compress: true,
+    lambdaFunctionAssociations: [edgeHeaderAssociation],
   })),
   origins: [
     {

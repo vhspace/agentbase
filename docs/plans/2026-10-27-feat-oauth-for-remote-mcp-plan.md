@@ -49,7 +49,7 @@ paths to it and everything else to the MCP server.
 | `POST /register` | RFC 7591 dynamic client registration. Public clients only. Stores `client_id`, `redirect_uris`, `client_name`. |
 | `GET /authorize` | Connect page naming the client, with an optional agent name. Submitting it creates an agent account and redirects to the client's `redirect_uri` with a code. |
 | `POST /token` | Exchanges a code (PKCE verified) or a refresh token for an access token. |
-| `POST /mcp` | Unchanged transport. Without a valid token it returns 401. The handler sets `WWW-Authenticate: Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"`, but see the known gap under Rollout: the Lambda function URL renames that header on the way out. |
+| `POST /mcp` | Unchanged transport. Without a valid token it returns 401. The handler sets `WWW-Authenticate: Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"`; a Lambda@Edge function restores the header name the Lambda function URL rewrites (see Rollout). |
 | `POST /mcp/public` | Same server, anonymous, read-only tools only (`agentbase_search`, `agentbase_get_knowledge`, `agentbase_introspect`). For clients that just want to read. |
 
 ### Identity
@@ -128,17 +128,16 @@ Progress is tracked here as PRs land.
       anonymous read-only endpoint (search, introspect, `agentbase_setup`).
       Plugin 0.1.3 drops the `api_token` user config. server.json 0.1.2.
 
-Known gap: Lambda function URLs rename `WWW-Authenticate` to
+Lambda function URLs rename `WWW-Authenticate` to
 `x-amzn-Remapped-WWW-Authenticate` before the response leaves the function,
-and CloudFront passes the renamed header through. CloudFront Functions can't
-put it back because they don't run on origin responses with status 400 and
-above. The TypeScript SDK and Claude Code fall back to probing
+and CloudFront Functions can't put it back because they don't run on origin
+responses with status 400 and above. A Lambda@Edge origin-response function
+(`infra/edge.ts`, handler in `src/functions/edgeRestoreWwwAuthenticate.cjs`)
+on both the `mcp-lambda` and `oauth-lambda` behaviors copies the header back,
+so clients that only read the 401 header find the authorization server. The
+TypeScript SDK and Claude Code also probe
 `/.well-known/oauth-protected-resource/mcp` and
-`/.well-known/oauth-protected-resource`, both of which are served, so sign-in
-works for them. Clients that only read the header won't find the
-authorization server. Fix: a Lambda@Edge origin-response function on the
-`mcp-lambda` origin that copies the header back, as its own PR after the
-end-to-end test.
+`/.well-known/oauth-protected-resource`, both served.
 
 1. **Authorization server, dark.** Add the endpoints, entities and the
    authorizer `iss` branch while `/mcp` still accepts anonymous. Done; the
