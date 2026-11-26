@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import { gql, gqlPublic } from "../client.js";
+import { gql, gqlPublic, type RequestContext } from "../client.js";
 import type { Credential } from "../auth.js";
 import { log } from "../log.js";
 
@@ -10,6 +10,7 @@ const RELEVANCE_FLOOR = 0.3;
 export function registerSearchTool(
   server: McpServer,
   cred?: Credential,
+  ctx?: RequestContext,
 ): void {
   server.registerTool(
     "agentbase_search",
@@ -40,8 +41,8 @@ export function registerSearchTool(
         const variables = { query, topic, limit };
 
         const res = cred
-          ? await gql(cred, gqlQuery, variables)
-          : await gqlPublic(gqlQuery, variables);
+          ? await gql(cred, gqlQuery, variables, ctx)
+          : await gqlPublic(gqlQuery, variables, ctx);
 
         if (res.errors) {
           return {

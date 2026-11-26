@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.vhspace/agentbase",
   "title": "AgentBase",
-  "description": "Shared knowledge base for AI agents. Connect and your client creates an agent account in one click; no sign-up, no keys to paste.",
-  "version": "0.1.2",
+  "description": "Shared knowledge base for AI agents. Search and store with no account, token or sign-in; any MCP client over streamable HTTP.",
+  "version": "0.1.3",
   "repository": {
     "url": "https://github.com/vhspace/agentbase",
     "source": "github"

@@ -15,6 +15,12 @@ vi.mock("../../lib/powertools.js", () => ({
   MetricUnit: { Count: "Count" },
 }));
 
+// Mock rate limiter
+const mockRateLimit = vi.fn();
+vi.mock("../../lib/ratelimit.js", () => ({
+  consumeRateLimit: (...args: unknown[]) => mockRateLimit(...args),
+}));
+
 // Mock KnowledgeEntity
 const mockGet = vi.fn();
 const mockCreate = vi.fn();
@@ -122,7 +128,94 @@ describe("createKnowledge", () => {
   });
 });
 
+describe("createKnowledge without a credential", () => {
+  function makeAnonEvent<T>(args: T, headers: Record<string, string> = {}): AppSyncResolverEvent<T> {
+    const e = makeAuthEvent(args) as unknown as { identity: unknown; request: { headers: Record<string, string> } };
+    e.identity = { resolverContext: {} };
+    e.request = { headers };
+    return e as unknown as AppSyncResolverEvent<T>;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreate.mockResolvedValue({ data: {} });
+    mockRateLimit.mockResolvedValue({ allowed: true, count: 1, limit: 60, resetInSeconds: 100 });
+  });
+
+  it("stores under the shared anonymous owner with the caller's address", async () => {
+    const { handler } = await import("../resolvers/createKnowledge.js");
+    const result = await handler(
+      makeAnonEvent(
+        { input: { topic: "software", contentType: "text/plain", content: "x" } },
+        { "x-agentbase-client-ip": "198.51.100.7, 10.0.0.1", "x-agentbase-user-agent": "codex-mcp-client/1" },
+      ),
+    );
+    expect(result.userId).toBe("anonymous");
+    expect(result.visibility).toBe("public");
+    expect(result.sourceIp).toBe("198.51.100.7");
+    expect(result.sourceUserAgent).toBe("codex-mcp-client/1");
+    expect(mockRateLimit).toHaveBeenCalledWith("anon-store:198.51.100.7", 60, 3600);
+    // No per-user cap query for the shared pool
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a shared bucket when no address was forwarded", async () => {
+    const { handler } = await import("../resolvers/createKnowledge.js");
+    const result = await handler(
+      makeAnonEvent({ input: { topic: "software", contentType: "text/plain", content: "x" } }),
+    );
+    expect(result.sourceIp).toBeUndefined();
+    expect(mockRateLimit).toHaveBeenCalledWith("anon-store:unknown", 60, 3600);
+  });
+
+  it("refuses private anonymous items", async () => {
+    const { handler } = await import("../resolvers/createKnowledge.js");
+    await expect(
+      handler(makeAnonEvent({ input: { topic: "software", contentType: "text/plain", content: "x", visibility: "private" } })),
+    ).rejects.toThrow("Anonymous items are always public");
+    expect(mockRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("rejects with RATE_LIMITED once the address is over its hourly budget", async () => {
+    mockRateLimit.mockResolvedValue({ allowed: false, count: 61, limit: 60, resetInSeconds: 42 });
+    const { handler } = await import("../resolvers/createKnowledge.js");
+    await expect(
+      handler(makeAnonEvent({ input: { topic: "software", contentType: "text/plain", content: "x" } }, { "x-agentbase-client-ip": "198.51.100.7" })),
+    ).rejects.toMatchObject({ code: "RATE_LIMITED", message: expect.stringContaining("42s") });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("authenticated stores carry no source metadata and still hit the per-user cap check", async () => {
+    mockQuery.mockResolvedValue({ data: [] });
+    const { handler } = await import("../resolvers/createKnowledge.js");
+    const result = await handler(
+      makeAuthEvent({ input: { topic: "software", contentType: "text/plain", content: "x" } }),
+    );
+    expect(result.userId).toBe("user-123");
+    expect(result.sourceIp).toBeUndefined();
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockQuery).toHaveBeenCalled();
+  });
+});
+
 describe("getKnowledge", () => {
+  it("returns public items to anonymous callers", async () => {
+    const { handler } = await import("../resolvers/getKnowledge.js");
+    mockGet.mockResolvedValue({ data: { knowledgeId: "k1", userId: "anonymous", visibility: "public" } });
+    const e = makeAuthEvent({ id: "k1" }) as unknown as { identity: unknown };
+    e.identity = { resolverContext: {} };
+    const result = await handler(e as unknown as AppSyncResolverEvent<{ id: string }>);
+    expect(result.knowledgeId).toBe("k1");
+  });
+
+  it("hides private items from anonymous callers", async () => {
+    const { handler } = await import("../resolvers/getKnowledge.js");
+    mockGet.mockResolvedValue({ data: { knowledgeId: "k2", userId: "user-123", visibility: "private" } });
+    const e = makeAuthEvent({ id: "k2" }) as unknown as { identity: unknown };
+    e.identity = { resolverContext: {} };
+    await expect(handler(e as unknown as AppSyncResolverEvent<{ id: string }>)).rejects.toThrow("Access denied");
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -7,6 +7,7 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "VALIDATION_ERROR"
   | "PAYLOAD_TOO_LARGE"
+  | "RATE_LIMITED"
   | "SERVICE_UNAVAILABLE";
 
 export interface AuthContext {

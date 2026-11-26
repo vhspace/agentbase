@@ -2,6 +2,7 @@ import type { AppSyncResolverEvent, AppSyncIdentityLambda } from "aws-lambda";
 import { logger, metrics, MetricUnit, withMetrics } from "../../lib/powertools.js";
 import { KnowledgeEntity } from "../../lib/entities/knowledge.js";
 import { UserEntity } from "../../lib/entities/user.js";
+import { ANONYMOUS_USER_ID, ANONYMOUS_USERNAME } from "../../lib/anonymous.js";
 import { queryVectors } from "../../lib/embeddings.js";
 import type { SearchResult } from "../../lib/types.js";
 
@@ -54,7 +55,8 @@ async function resolve(
   }
 
   // Batch get users
-  const userMap = new Map<string, string>();
+  const userMap = new Map<string, string>([[ANONYMOUS_USER_ID, ANONYMOUS_USERNAME]]);
+  userIds.delete(ANONYMOUS_USER_ID);
   await Promise.all(
     [...userIds].map(async (uid) => {
       const { data: user } = await UserEntity.get({ userId: uid }).go();

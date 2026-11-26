@@ -127,6 +127,19 @@ Progress is tracked here as PRs land.
 - [x] Flip: `/mcp` returns 401 without a token; `/mcp/public` is the
       anonymous read-only endpoint (search, introspect, `agentbase_setup`).
       Plugin 0.1.3 drops the `api_token` user config. server.json 0.1.2.
+- [x] Unflipped (2026-11-26). Seventeen days of logs after the flip: 23
+      clients completed dynamic registration, none ever loaded `/authorize`
+      in a browser, zero connects. The clients that show up (Codex, Mistral,
+      coda-agent-runtime, `node`) are headless, and a browser consent page
+      can never work for them. `/mcp` now serves every connection with no
+      credential: search, store, get, setup, introspect. Anonymous stores
+      are public, owned by the shared `anonymous` user, carry the caller's
+      address and user agent, and are rate limited to 60 per hour per
+      address (`src/lib/ratelimit.ts`, fixed window on the main table).
+      Ownership tools (list, update, delete, me) still need a credential.
+      The authorization server stays up for clients that choose to use it;
+      the server never advertises it with a 401. `/mcp/public` is an alias.
+      Plugin 0.1.4, server.json 0.1.3.
 
 Lambda function URLs rename `WWW-Authenticate` to
 `x-amzn-Remapped-WWW-Authenticate` before the response leaves the function,

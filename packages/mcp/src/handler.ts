@@ -7,8 +7,6 @@ import { createMcpServer } from "./index.js";
 import { parseAuthorization } from "./auth.js";
 import { log } from "./log.js";
 
-const MCP_ORIGIN = new URL(process.env.MCP_URL ?? "https://mcp.agentbase.tools/mcp").origin;
-const RESOURCE_METADATA_URL = `${MCP_ORIGIN}/.well-known/oauth-protected-resource`;
 
 export async function handler(
   event: APIGatewayProxyEventV2,
@@ -101,39 +99,6 @@ export async function handler(
     log("WARN", "Invalid bearer token received");
   }
 
-  // /mcp requires a credential. The 401 with resource metadata is what makes
-  // Claude Code, claude.ai and Cursor open the browser connect page; a 200
-  // with fewer tools never does. /mcp/public is the anonymous, read-only
-  // endpoint for clients that only want to search, and for headless agents
-  // that register themselves with agentbase_setup.
-  const publicEndpoint = path === "/mcp/public";
-  if (!cred && !publicEndpoint) {
-    log("INFO", "MCP request", {
-      method,
-      path,
-      host: event.headers?.["host"],
-      clientIp: event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || event.requestContext.http.sourceIp,
-      userAgent: event.requestContext.http.userAgent,
-      rpcMethod: "unknown",
-      rejected: "unauthorized",
-    });
-    return {
-      statusCode: 401,
-      headers: {
-        "content-type": "application/json",
-        "www-authenticate": `Bearer resource_metadata="${RESOURCE_METADATA_URL}"`,
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        error: {
-          code: -32001,
-          message: `Authentication required. Complete the OAuth flow advertised in WWW-Authenticate, or use ${MCP_ORIGIN}/mcp/public for anonymous read-only access.`,
-        },
-        id: null,
-      }),
-    };
-  }
-
   // Parse the JSON-RPC body to extract method name for logging
   let rpcMethod = "unknown";
   let tool: string | undefined;
@@ -184,7 +149,12 @@ export async function handler(
 
   log("INFO", "MCP request", requestContext);
 
-  const server = createMcpServer(cred);
+  // Every POST path is the MCP endpoint. /mcp/public is kept as an alias for
+  // configs written when /mcp still demanded a token; it behaves identically.
+  const server = createMcpServer(cred, {
+    clientIp,
+    userAgent: event.requestContext.http.userAgent,
+  });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

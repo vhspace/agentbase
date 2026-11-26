@@ -22,6 +22,9 @@ export const KnowledgeEntity = new Entity(
       },
       createdAt: { type: "string", required: true },
       updatedAt: { type: "string", required: true },
+      // Set only on anonymous items, for rate limiting and cleanup.
+      sourceIp: { type: "string" },
+      sourceUserAgent: { type: "string" },
     },
     indexes: {
       byKnowledgeId: {

@@ -6,10 +6,8 @@ export async function handler(
   event: AppSyncResolverEvent<{ id: string }>,
 ) {
   const identity = event.identity as AppSyncIdentityLambda | null;
+  // Anonymous callers may read public items.
   const userId = identity?.resolverContext?.userId;
-  if (!userId) {
-    throw new AppError("AUTH_FAILED", "Not authenticated");
-  }
 
   const { id } = event.arguments;
   const { data: item } = await KnowledgeEntity.get({ knowledgeId: id }).go();

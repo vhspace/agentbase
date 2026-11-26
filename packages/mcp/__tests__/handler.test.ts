@@ -102,45 +102,65 @@ describe("structured logging", () => {
   });
 });
 
-describe("authentication", () => {
+describe("authentication is optional", () => {
   const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } } };
+  const list = { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} };
+  const names = (res: { body?: string }) =>
+    JSON.parse(res.body!).result.tools.map((t: { name: string }) => t.name).sort();
 
-  it("returns 401 with resource metadata on /mcp without a token", async () => {
+  it("serves /mcp with no token at all, no 401, no WWW-Authenticate", async () => {
     const res = await handler(
       event("POST", { headers: { "content-type": "application/json" }, body: JSON.stringify(init) }),
     );
-    expect(res.statusCode).toBe(401);
-    expect(res.headers?.["www-authenticate"]).toBe(
-      'Bearer resource_metadata="https://mcp.agentbase.tools/.well-known/oauth-protected-resource"',
-    );
-    expect(JSON.parse(res.body!).error.message).toContain("/mcp/public");
+    expect(res.statusCode).toBe(200);
+    expect(res.headers?.["www-authenticate"]).toBeUndefined();
+    expect(JSON.parse(res.body!).result.serverInfo.name).toBe("agentbase");
   });
 
-  it("serves /mcp when an OAuth access token is present", async () => {
+  it("anonymous connections can search, store, get, set up and introspect", async () => {
+    const res = await handler(
+      event("POST", { headers: { "content-type": "application/json" }, body: JSON.stringify(list) }),
+    );
+    expect(names(res)).toEqual([
+      "agentbase_get_knowledge",
+      "agentbase_introspect",
+      "agentbase_search",
+      "agentbase_setup",
+      "agentbase_store_knowledge",
+    ]);
+  });
+
+  it("/mcp/public is an alias with the same tools", async () => {
+    const pub = await handler(
+      event("POST", { rawPath: "/mcp/public", headers: { "content-type": "application/json" }, body: JSON.stringify(list) }),
+    );
+    const main = await handler(
+      event("POST", { headers: { "content-type": "application/json" }, body: JSON.stringify(list) }),
+    );
+    expect(pub.statusCode).toBe(200);
+    expect(names(pub)).toEqual(names(main));
+  });
+
+  it("an OAuth access token adds the ownership tools", async () => {
     const jwt = "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ1IiwiaXNzIjoiaHR0cHM6Ly9tY3AuYWdlbnRiYXNlLnRvb2xzIn0.c2ln";
     const res = await handler(
       event("POST", {
         headers: { "content-type": "application/json", authorization: `Bearer ${jwt}` },
-        body: JSON.stringify(init),
+        body: JSON.stringify(list),
       }),
     );
     expect(res.statusCode).toBe(200);
-    expect(JSON.parse(res.body!).result.serverInfo.name).toBe("agentbase");
-  });
-
-  it("serves anonymous initialize on /mcp/public with only the read-only tools", async () => {
-    const res = await handler(
-      event("POST", { rawPath: "/mcp/public", headers: { "content-type": "application/json" }, body: JSON.stringify(init) }),
-    );
-    expect(res.statusCode).toBe(200);
-    const list = await handler(
-      event("POST", {
-        rawPath: "/mcp/public",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
-      }),
-    );
-    const names = JSON.parse(list.body!).result.tools.map((t: { name: string }) => t.name).sort();
-    expect(names).toEqual(["agentbase_introspect", "agentbase_search", "agentbase_setup"]);
+    expect(names(res)).toEqual([
+      "agentbase_delete_knowledge",
+      "agentbase_get_knowledge",
+      "agentbase_introspect",
+      "agentbase_list_knowledge",
+      "agentbase_me",
+      "agentbase_search",
+      "agentbase_setup",
+      "agentbase_store_knowledge",
+      "agentbase_update_knowledge",
+      "agentbase_update_me",
+    ]);
   });
 });

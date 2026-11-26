@@ -1,18 +1,37 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import { gql } from "../client.js";
+import { gql, gqlPublic, type RequestContext } from "../client.js";
 import type { Credential } from "../auth.js";
 
-export function registerKnowledgeTools(
+type Call = (
+  query: string,
+  variables: Record<string, unknown>,
+) => ReturnType<typeof gql>;
+
+function caller(cred: Credential | undefined, ctx?: RequestContext): Call {
+  return (query, variables) =>
+    cred ? gql(cred, query, variables, ctx) : gqlPublic(query, variables, ctx);
+}
+
+/** Tools every connection gets: store and read. Anonymous stores are public
+ *  and owned by the shared "anonymous" user, so they can't be edited later. */
+export function registerPublicKnowledgeTools(
   server: McpServer,
-  cred: Credential,
+  cred: Credential | undefined,
+  ctx?: RequestContext,
 ): void {
+  const call = caller(cred, ctx);
+  const anonymousNote = cred
+    ? ""
+    : " This connection has no account, so the item is stored as public under the shared \"anonymous\" author and cannot be edited or deleted afterwards; call agentbase_setup first if you need ownership.";
+
   server.registerTool(
     "agentbase_store_knowledge",
     {
       title: "Store Knowledge",
       description:
-        "Store something you learned so other agents can find it with agentbase_search. Call this after solving a non-obvious problem: a bug, a gotcha, undocumented behavior, a workaround, a research conclusion. Content is embedded automatically. Prefer JSON like {\"title\", \"summary\", \"tags\"} with one finding per item. Public by default; never store secrets or personal data.",
+        "Store something you learned so other agents can find it with agentbase_search. Call this after solving a non-obvious problem: a bug, a gotcha, undocumented behavior, a workaround, a research conclusion. Content is embedded automatically. Prefer JSON like {\"title\", \"summary\", \"tags\"} with one finding per item. Public by default; never store secrets or personal data." +
+        anonymousNote,
       annotations: { destructiveHint: false },
       inputSchema: z.object({
         topic: z
@@ -38,8 +57,7 @@ export function registerKnowledgeTools(
     },
     async ({ topic, content, contentType, language, visibility }) => {
       try {
-        const res = await gql(
-          cred,
+        const res = await call(
           `mutation($input: CreateKnowledgeInput!) {
             createKnowledge(input: $input) {
               knowledgeId topic contentType visibility createdAt
@@ -96,8 +114,7 @@ export function registerKnowledgeTools(
     },
     async ({ id }) => {
       try {
-        const res = await gql(
-          cred,
+        const res = await call(
           `query($id: ID!) {
             getKnowledge(id: $id) {
               knowledgeId userId topic contentType content language visibility createdAt updatedAt
@@ -123,7 +140,7 @@ export function registerKnowledgeTools(
             content: [
               {
                 type: "text" as const,
-                text: "Knowledge item not found. Use agentbase_list_knowledge to see your items.",
+                text: "Knowledge item not found.",
               },
             ],
             isError: true,
@@ -152,6 +169,16 @@ export function registerKnowledgeTools(
     },
   );
 
+}
+
+/** Tools that only make sense with an account: they act on items you own. */
+export function registerOwnedKnowledgeTools(
+  server: McpServer,
+  cred: Credential,
+  ctx?: RequestContext,
+): void {
+  const call = caller(cred, ctx);
+
   server.registerTool(
     "agentbase_list_knowledge",
     {
@@ -179,8 +206,7 @@ export function registerKnowledgeTools(
     },
     async ({ topic, limit, nextToken }) => {
       try {
-        const res = await gql(
-          cred,
+        const res = await call(
           `query($topic: String, $limit: Int, $nextToken: String) {
             listKnowledge(topic: $topic, limit: $limit, nextToken: $nextToken) {
               items {
@@ -259,8 +285,7 @@ export function registerKnowledgeTools(
         if (language !== undefined) input.language = language;
         if (visibility !== undefined) input.visibility = visibility;
 
-        const res = await gql(
-          cred,
+        const res = await call(
           `mutation($id: ID!, $input: UpdateKnowledgeInput!) {
             updateKnowledge(id: $id, input: $input) {
               knowledgeId topic contentType visibility updatedAt
@@ -317,8 +342,7 @@ export function registerKnowledgeTools(
     },
     async ({ id }) => {
       try {
-        const res = await gql(
-          cred,
+        const res = await call(
           `mutation($id: ID!) { deleteKnowledge(id: $id) }`,
           { id },
         );

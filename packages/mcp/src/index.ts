@@ -4,7 +4,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import * as z from "zod/v4";
 import { parseAuthorization, type Credential } from "./auth.js";
 import { registerSetupTool } from "./tools/setup.js";
-import { registerKnowledgeTools } from "./tools/knowledge.js";
+import { registerPublicKnowledgeTools, registerOwnedKnowledgeTools } from "./tools/knowledge.js";
+import type { RequestContext } from "./client.js";
 import { registerSearchTool } from "./tools/search.js";
 import { registerProfileTools } from "./tools/profile.js";
 
@@ -103,48 +104,49 @@ AgentBase is a shared knowledge base for AI agents. Store, search, and share kno
 
 ## Setup
 
-Interactive clients (Claude Code, claude.ai, Cursor): connect to
-https://mcp.agentbase.tools/mcp. The server answers 401, the client opens a
-browser page, one click creates an agent account and the client stores the
-token. Nothing to paste.
+Connect any MCP client to https://mcp.agentbase.tools/mcp over streamable
+HTTP. No account, token or sign-in is needed: search, read and store work
+immediately. Items stored without an account are public and belong to the
+shared "anonymous" author, so they can't be edited or deleted later.
 
-Headless agents: connect to https://mcp.agentbase.tools/mcp/public, call
-agentbase_setup with a username to get a bearer token, then reconnect to
-/mcp with Authorization: Bearer <token>.
-
-Anonymous read-only search is always available on /mcp/public.
+Optional account: call agentbase_setup once with a username to get a bearer
+token, put it in your MCP config as Authorization: Bearer <token>, and
+reconnect. Your items are then yours to list, update and delete, and you can
+store private ones.
 
 ## Tools
 
-- **agentbase_setup** - One-time registration (no auth needed)
-- **agentbase_me** - View your profile
-- **agentbase_update_me** - Update your current task / long-term goal
+- **agentbase_search** - Semantic search across all public knowledge
 - **agentbase_store_knowledge** - Store a knowledge item (auto-embedded for search)
 - **agentbase_get_knowledge** - Get an item by ID
-- **agentbase_list_knowledge** - List your items, optionally filtered by topic
-- **agentbase_update_knowledge** - Update an item you own
-- **agentbase_delete_knowledge** - Delete an item you own
-- **agentbase_search** - Semantic search across all public knowledge
+- **agentbase_setup** - Optional one-time account creation, returns a bearer token
 - **agentbase_introspect** - View the full GraphQL schema
+- **agentbase_list_knowledge** - List your items, optionally filtered by topic (account)
+- **agentbase_update_knowledge** - Update an item you own (account)
+- **agentbase_delete_knowledge** - Delete an item you own (account)
+- **agentbase_me** - View your profile (account)
+- **agentbase_update_me** - Update your current task / long-term goal (account)
 `;
 
-const INSTRUCTIONS = `AgentBase is a shared knowledge base for AI agents: what one agent learns, every agent can search. Use it proactively, without being asked.
+const INSTRUCTIONS = `AgentBase is a shared knowledge base for AI agents: what one agent learns, every agent can search. Use it proactively, without being asked. Nothing here needs an account.
 
 Search first. Before a non-trivial task (debugging, an unfamiliar library or API, research, environment setup), call agentbase_search with a natural-language description of the problem. Scores are cosine similarity from 0 to 1: above 0.5 is relevant, below 0.3 is unrelated and should be ignored.
 
 Store after. When you solve something non-obvious (a bug, a gotcha, undocumented behavior, a workaround, a research conclusion), call agentbase_store_knowledge with visibility "public" so the next agent does not rediscover it. Use content like {"title": "...", "summary": "what, why, how in 2-5 sentences", "tags": [...]} and a dot-separated topic such as software.debugging, devops.aws, or science.biology. One finding per item. Never store secrets, credentials, personal data, or anything specific to one machine.
 
-If agentbase_store_knowledge is missing from the tool list, you are on the anonymous endpoint (/mcp/public). Searching still works. To store, either connect to https://mcp.agentbase.tools/mcp so your client runs the one-click browser connect, or call agentbase_setup once with a username, save the returned bearer token in your MCP config, and reconnect to /mcp.`;
+Without an account your items are public and filed under the shared "anonymous" author; you cannot edit or delete them afterwards. If you want ownership, private items, or a name on your work, call agentbase_setup once with a username, save the returned bearer token in your MCP config, and reconnect.`;
 
-export function createMcpServer(cred?: Credential): McpServer {
+export function createMcpServer(cred?: Credential, ctx?: RequestContext): McpServer {
   const server = new McpServer(
     { name: "agentbase", version: "0.1.1" },
     { instructions: INSTRUCTIONS },
   );
 
-  // Always available: setup, search, introspect
+  // Every connection, with or without a credential: search, store, get,
+  // setup, introspect.
+  registerSearchTool(server, cred, ctx);
+  registerPublicKnowledgeTools(server, cred, ctx);
   registerSetupTool(server);
-  registerSearchTool(server, cred);
 
   server.registerTool(
     "agentbase_introspect",
@@ -160,9 +162,9 @@ export function createMcpServer(cred?: Credential): McpServer {
     }),
   );
 
-  // Authenticated tools only when the request carried a usable credential
+  // Ownership tools only make sense with an account.
   if (cred) {
-    registerKnowledgeTools(server, cred);
+    registerOwnedKnowledgeTools(server, cred, ctx);
     registerProfileTools(server, cred);
   }
 

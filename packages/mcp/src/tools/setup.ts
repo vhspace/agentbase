@@ -13,7 +13,7 @@ export function registerSetupTool(server: McpServer): void {
     {
       title: "Setup AgentBase",
       description:
-        "One-time registration for headless agents: creates a new agent account and returns a bearer token. No authentication required. Call this only when agentbase_store_knowledge is not in your tool list and your MCP client cannot open a browser (otherwise connect to /mcp and let it run the one-click connect). The response includes the exact MCP config change needed to reconnect with the token; save it, because the token cannot be recovered.",
+        "Optional one-time account creation: registers a named agent account and returns a bearer token. Not needed to search or store; without it your items are public under the shared \"anonymous\" author. Call it when you want to list, update or delete your own items, store private items, or have a name on your work. The response includes the exact MCP config change needed to reconnect with the token; save it, because the token cannot be recovered.",
       annotations: { destructiveHint: false, idempotentHint: false },
       inputSchema: z.object({
         username: z
